@@ -38,7 +38,7 @@
 
 常见的消息中间件协议：OpenWire，AMQP，MQTT，Kafka，OpenMessage等。
 
-#消息队列持久化
+## 消息队列持久化
 
 简而言之就是将数据存入磁盘，而不是存在内存中。
 
@@ -69,7 +69,7 @@ MQ消息队列有如下几个角色：
 
 
 
-##RabbitMQ安装
+## RabbitMQ安装
 
 推荐使用Docker安装（Dokcer安装详见Dokcer笔记，Win下Docker安装自行百度）
 
@@ -79,25 +79,25 @@ docker run -di --name myrabbit -e RABBITMQ_DEFAULT_USER=admin -e RABBITMQ_DEFAUL
 
 安装完成后，浏览器下输入localhost:15672输入admin，admin即可访问。
 
-#RabbitMQ角色分类
+## RabbitMQ角色分类
 
-##none
+### none
 
 - 不能访问management plugin
 
-##management：查看自己相关节点信息
+### management：查看自己相关节点信息
 
 - 列出自己可以通过AMQP登入的虚拟机
 - 查看自己的虚拟机节点 virtual hosts的queues,exchanges和bindings信息
 - 查看和关闭自己的channels和connections
 - 查看有关自己的虚拟机节点virtual hosts的统计信息。包括其他用户在这个节点virtual hosts中的活动信息。
 
-##Policymaker
+### Policymaker
 
 - 包含management所有权限
 - 查看和创建和删除自己的virtual hosts所属的policies和parameters信息。
 
-##Monitoring
+### Monitoring
 
 - 包含management所有权限
 - 罗列出所有的virtual hosts，包括不能登录的virtual hosts。
@@ -105,7 +105,7 @@ docker run -di --name myrabbit -e RABBITMQ_DEFAULT_USER=admin -e RABBITMQ_DEFAUL
 - 查看节点级别的数据如clustering和memory使用情况
 - 查看所有的virtual hosts的全局统计信息。
 
-##Administrator
+### Administrator
 
 - 最高权限
 - 可以创建和删除virtual hosts
@@ -135,7 +135,7 @@ docker run -di --name myrabbit -e RABBITMQ_DEFAULT_USER=admin -e RABBITMQ_DEFAUL
 
 
 
-##导入maven依赖
+## 导入maven依赖
 
 ```xml
 <dependency>
@@ -239,7 +239,7 @@ public class Producer {
 
 ![img](assets/kuangstudydf396d39-9059-49fd-aaaa-a41b027c2a4b.png)
 
-###队列消息预览测试
+### 队列消息预览测试
 
 ![img](assets/kuangstudyed656121-1e27-4c0e-84e7-70ae48f3b0f1.png)
 
@@ -247,7 +247,7 @@ public class Producer {
 
 
 
-##定义消费者
+## 定义消费者
 
 ```java
 package com.xuexiangban.rabbitmq.simple;
@@ -327,17 +327,17 @@ AMQP全称：Advanced Message Queuing Protocol(**高级消息队列协议**)。�
 
 
 
-##AMQP生产者流转过程
+### AMQP生产者流转过程
 
 ![img](assets/kuangstudy7c8a41b8-e3bf-4821-a1f1-a18860277663.png)
 
 
 
-##AMQP消费者流转过程
+### AMQP消费者流转过程
 
 ![img](assets/kuangstudy081077ba-eced-43f9-b148-6f63987f1d2f.png)
 
-#RabbitMQ的核心组成部分
+# RabbitMQ的核心组成部分
 
 ![img](assets/kuangstudy62a1f9e3-027d-408a-8fb4-a176bd184d23.png)
 
@@ -360,7 +360,7 @@ AMQP全称：Advanced Message Queuing Protocol(**高级消息队列协议**)。�
 
 
 
-##RabbitMQ的运行流程
+## RabbitMQ的运行流程
 
 ![img](assets/kuangstudy2704cee9-3595-45de-892d-ee658e848806.png)
 
@@ -419,7 +419,7 @@ AMQP全称：Advanced Message Queuing Protocol(**高级消息队列协议**)。�
 
 
 
-##Fanout模式
+## Fanout模式
 
 ![img](assets/kuangstudy160fd9d8-2b42-4d43-b0d6-b4e47e272e8f.png)
 
@@ -579,7 +579,7 @@ public class Consumer {
 
 
 
-##Direct模式
+## Direct模式
 
 ![img](assets/kuangstudy33427b78-879d-4511-9dd7-42fb33108339.png)
 
@@ -1111,7 +1111,7 @@ public class ConsumerAll {
 
 
 
-##Work模式
+## Work模式
 
 当有多个消费者时，我们的消息会被哪个消费者消费呢，我们又该如何均衡消费者消费信息的多少呢?
 主要有两种模式：
@@ -1120,7 +1120,7 @@ public class ConsumerAll {
 
 
 
-###Work模式-轮询
+### Work模式-轮询
 
 - 类型：无
 - 特点：该模式接收消息是当有多个消费者接入时，消息的分配模式是一个消费者分配一条，直至消息消费完成；
@@ -1372,7 +1372,7 @@ work1和work2的消息处理能力不同，但是最后处理的消息条数相�
 
 
 
-###Work模式-公平
+### Work模式-公平
 
 - 类型：无
 - 特点：由于消息接收者处理消息的能力不同，存在处理快慢的问题，我们就需要能者多劳，处理快的多处理，处理慢的少处理；
@@ -1620,7 +1620,7 @@ public class Work2 {
 }
 ```
 
-###总结
+总结
 
 从结果可以看到，消费者1在相同时间内，处理了更多的消息；以上代码我们实现了公平分发模式；
 

@@ -40,15 +40,15 @@ NoSQL = Not Only SQL（不仅仅是SQL）
 
 
 
-##NoSQL的四大分类
+## NoSQL的四大分类
 
-###KV键值对
+### KV键值对
 
 - 新浪：Redis
 - 美团：Redis+Tair
 - 阿里，百度：Redis+memecache
 
-###文档行数据库
+### 文档行数据库
 
 - MongoDB（一般必须要掌握）
 
@@ -58,18 +58,18 @@ NoSQL = Not Only SQL（不仅仅是SQL）
 
 - ConthDB
 
-###列存储数据库
+### 列存储数据库
 
 - HBase
 - 分布式文件系统
 
-###图关系数据库
+### 图关系数据库
 
-#Redis入门
+# Redis入门
 
 
 
-##什么是Redis
+## 什么是Redis
 
 Redis（Remote Dictionary Server )，即远程字典服务
 
@@ -79,7 +79,7 @@ redis会周期性的把更新的数据写入磁盘或者把修改操作写入追
 
 
 
-##Redis能干吗
+## Redis能干吗
 
 - 内存存储，持久化
 - 效率高，可以用于高速缓存
@@ -90,7 +90,7 @@ redis会周期性的把更新的数据写入磁盘或者把修改操作写入追
 
 
 
-##Redis特性
+## Redis特性
 
 - 多样的数据类型
 - 持久化
@@ -98,7 +98,9 @@ redis会周期性的把更新的数据写入磁盘或者把修改操作写入追
 - 事务
 - 。。。
 
-#Redis 基础知识
+
+
+# Redis 基础知识
 
 
 
@@ -110,7 +112,7 @@ redis会周期性的把更新的数据写入磁盘或者把修改操作写入追
 
 切换到第3个数据库 和 查看数据库大小
 
-![image-20230311164744982](assets/image-20230311164744982.png)
+xxxxxxxxxx51 1<!DOCTYPE html>2<html>3<head>4  <meta charset="UTF-8" />5  <title>姓名案例-计算属性实现</title>6  <script src="https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.js"></script>7</head>8<body>9<!--10  11-->12​13<!--准备好一个容器-->14<div id="root">15  姓：<input type="text" v-model="firstName"> <br/>16  名：<input type="text" v-model="lastName"> <br/>17  姓名：<span>{{fullName}}</span>18</div>19​20<script type="text/javascript">21  Vue.config.productionTip = false // 阻止Vue在启动时生成生产提示22​23  // 创建vue实例24  const x = new Vue({25    el: '#root', //el用于指定当前vue实例为哪个容器服务，值通常为css选择器字符串，用于与容器建立联系26    data: { //data中用于存储数据，数据供el所指定的容器去使用27      firstName: '张',28      lastName: '三',29    },30    computed: {31      fullName: {32        // get有什么作用？ 当有人读取fullName时get就会被调用，请回想之前学的defineProperty33        // get什么时候调用？？  1.初次读取fullName时 2.所依赖的数据发生变化时34        get(){35          return this.firstName + '-' + this.lastName36        },37        // set什么时候调用？ 当fullName被修改时。38        set(value){39          const arr = value.split('-')40          this.firstName = arr[0]41          this.lastName = arr[1]42        }43      }44    }45​46  })47​48</script>49</body>50​51</html>html
 
 
 
@@ -138,7 +140,7 @@ redis会周期性的把更新的数据写入磁盘或者把修改操作写入追
 
 
 
-#小结
+# 小结
 
 **redis是单线程的！**
 
@@ -150,7 +152,7 @@ Redis为什么单线程还这么快？（面试题）
 
 核心：redis是将所有的数据全部放在内存中的，所以说使用单线程操作效率就是最高的（而CPU切换线程是要消耗时间的）多次读写都是在一个CPU上面的。
 
-#**Redis-Key**
+# **Redis-Key**
 
 - keys * 查看所有key
 - exist key 判断当前key是否存在
@@ -159,7 +161,7 @@ Redis为什么单线程还这么快？（面试题）
 - ttl key 查看当前key的剩余时间
 - type key 查看当前key的一个类型
 
-#**五大数据类型**
+# **五大数据类型**
 
 - 字符串（String）
 - 散列（hashes）
@@ -169,7 +171,7 @@ Redis为什么单线程还这么快？（面试题）
 
 
 
-##字符串类型（String）
+## 字符串类型（String）
 
 - strlen key 查看key的长度
 - append key "..." 往某个key中添加字符串“。。。” 如果key不存在 相当于创建key即set key
@@ -190,7 +192,7 @@ Redis为什么单线程还这么快？（面试题）
 
 
 
-##列表类型（List）
+## 列表类型（List）
 
 - 所有的List命令都是以L开头的
 - LPUSH key values 将一个值或者多个值，插入列表头部，（左边进栈）
@@ -249,11 +251,11 @@ Redis为什么单线程还这么快？（面试题）
 - zcard 获取集合中的个数
 - zcount4
 
-#**三种特殊数据类型**
+# **三种特殊数据类型**
 
 
 
-##geospatial 地理位置
+## geospatial 地理位置
 
 - 命令都是以geo开头的
 - geoadd 添加位置
@@ -265,7 +267,7 @@ Redis为什么单线程还这么快？（面试题）
 
 
 
-##Hyperloglog 基数统计的算法 数据结构
+## Hyperloglog 基数统计的算法 数据结构
 
 - 网页的UV（一个人访问一个网站多次，但还是算作一个人个）
 - 占用的内存比较小
@@ -277,14 +279,14 @@ Redis为什么单线程还这么快？（面试题）
 
 
 
-##Bitmaps 位图
+## Bitmaps 位图
 
 - 占用内存小
 - setbit
 - getbit
 - bitcount
 
-#事务
+# 事务
 
 **Redis单条命令是保存原子性的，但是事务不保证原子性**
 
@@ -556,7 +558,7 @@ save 60 5
 
 还有aof，aof是通过保存服务器所执行过的所有命令，将这些命令打包成一个aof文件，然后给其他服务器执行，默认情况下aof服务一般不开启，aof是每隔1秒记录一次。
 
-#**Redis主从复制**
+# **Redis主从复制**
 
 **概念**
 
@@ -626,7 +628,7 @@ redis-sentinel 配置文件夹/sentinel.conf
 
 缺点：不好在线拓容。
 
-#**Redis缓存穿透和雪崩**
+# **Redis缓存穿透和雪崩**
 
 ![image-20230311170414376](assets/image-20230311170414376.png)
 

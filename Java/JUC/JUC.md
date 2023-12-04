@@ -64,9 +64,9 @@ wait/sleep的区别
 
 
 
-##买票问题
+## 买票问题
 
-###sychronized
+### sychronized
 
 ```java
 package com.zmy.Demo1;
@@ -115,7 +115,7 @@ class Ticket {
 
 
 
-###Lock
+### Lock
 
 ![image-20230303085827553](assets/image-20230303085827553.png)
 
@@ -969,10 +969,8 @@ public class CountDownLatchTest {
 }
 ```
 
-原理:每次有线程调用countDown()，数量-1，假设计数器变为0，countDownLatch.await()就会被唤醒，然后继续执行后面的操作
-
-- - countDownLatch.countDown(); //计数器-1
-  - countDownLatch.await(); //等待计数器归零，然后再向下执行
+- countDownLatch.countDown(); //计数器-1
+- countDownLatch.await(); //等待计数器归零，然后再向下执行
 
 ## CyclicBarrier
 
@@ -1029,7 +1027,7 @@ public class CyclicBarrierTest {
 召唤神龙成功
 ```
 
-##Semaphore(信号量)
+## Semaphore(信号量)
 
 ```java
 package com.zmy.Demo6;
@@ -1949,7 +1947,7 @@ public class Test1 {
 
 - ForkJoinPool 通过这个类来执行
 - ForkJoinPool.execute(ForkJoinTask task) 然后执行
-- 算类必须继承ForkJoinTask
+- 计算类必须继承ForkJoinTask
 
 ```java
 package com.zmy.Demo12;
@@ -2143,7 +2141,7 @@ public class FutureTest1 {
 
 
 
-#JMM
+# JMM
 
 ==Volatile是JAVA虚拟机提供的轻量级的同步机制==
 
@@ -2486,7 +2484,7 @@ import java.lang.reflect.Constructor;
 
 
 //enum 是一个什么？ 它本身也是一个Class类
-//反射不能破坏枚举单例！！！！！
+//反射不能破坏枚举单例
 public enum SingleLazyEnum {
 
 
@@ -2602,7 +2600,7 @@ Unsafe类：
 
 ![image-20230303093643279](assets/image-20230303093643279.png)
 
-##CAS:ABA问题(狸猫换太子)
+## CAS:ABA问题(狸猫换太子)
 
 如下图所示：右边的线程修改了主存中A的值，但是又把主存中A的值修改为了原值，此时左边线程调用时还是正确调用的
 
@@ -2859,3 +2857,62 @@ B==>myunlock
 
 
 
+# Synchronized的锁升级过程
+
+
+
+## Java对象的组成
+
+我们都知道对象是放在堆内存中的，对象大致可以分为三个部分，分别是；
+
+- 对象头
+- 实例变量
+- 填充字节
+
+![image-20231116152111541](assets\image-20231116152111541.png)
+
+对象头，主要包括两部分1. Mark Word （标记字段），2.Class Pointer（类型指针）。Klass Point 是对象指向它的类元数据的指针，虚拟机通过这个指针来确定这个对象是哪个类的实例（即指向方法区类的模版信息）。Mark Word用于存储对象自身的运行时数据
+
+
+
+实例变量，存放类的属性数据信息，包括父类的属性信息，这部分内存按4字节对齐
+
+
+
+填充数据，由于虚拟机要求对象起始地址必须是8字节的整数倍。填充数据不是必须存在的，仅仅是为了字节对齐
+
+
+
+其中Mark Word的结构如下：
+
+![image-20231116152133615](assets\image-20231116152133615.png)
+
+其中轻量级锁和偏向锁是Java 6 对 synchronized 锁进行优化后新增加的，稍后我们会简要分析。这里我们主要分析一下重量级锁也就是通常说synchronized的对象锁，锁标识位为10，其中指针指向的是monitor对象（也称为管程或监视器锁）的起始地址。每个对象都存在着一个 monitor 与之关联。在Java虚拟机(HotSpot)中，monitor是由ObjectMonitor实现的，其主要数据结构如下（位于HotSpot虚拟机源码ObjectMonitor.hpp文件，C++实现的），省略部分属性
+
+![image-20231116152151049](assets\image-20231116152151049.png)
+
+
+
+
+
+## 锁升级
+
+synchronized锁有四种状态，无锁，偏向锁，轻量级锁，重量级锁，这几个状态会随着竞争状态逐渐升级，
+
+***\*锁可以升级但不能降级，但是偏向锁状态可以被重置为无锁状态.\****
+
+
+
+## 偏向锁(SE1.6引入)
+
+当线程1访问代码块并获取锁对象时，会在java对象头和栈帧中记录偏向的锁的threadID，因为偏向锁不会主动释放锁，因此以后线程1再次获取锁的时候，需要比较当前线程的threadID和Java对象头中的threadID是否一致，如果一致（还是线程1获取锁对象），则无需使用CAS来加锁、解锁；如果不一致（其他线程，如线程2要竞争锁对象，而偏向锁不会主动释放因此还是存储的线程1的threadID），那么需要查看Java对象头中记录的线程1是否存活，如果没有存活，那么锁对象被重置为无锁状态，其它线程（线程2）可以竞争将其设置为偏向锁；如果存活，那么立刻查找该线程（线程1）的栈帧信息，如果还是需要继续持有这个锁对象，那么暂停当前线程1，撤销偏向锁，升级为轻量级锁，如果线程1 不再使用该锁对象，那么将锁对象状态设为无锁状态，重新偏向新的线程。
+
+
+
+## 轻量级锁(SE1.6引入)
+
+线程1获取轻量级锁时会先把锁对象的对象头MarkWord复制一份到线程1的栈帧中创建的用于存储锁记录的空间（称为DisplacedMarkWord），然后使用CAS把对象头中的内容替换为线程1存储的锁记录（DisplacedMarkWord）的地址；
+
+如果在线程1复制对象头的同时（在线程1CAS之前），线程2也准备获取锁，复制了对象头到线程2的锁记录空间中，但是在线程2CAS的时候，发现线程1已经把对象头换了，**线程2的CAS失败，那么线程2就尝试使用自旋锁来等待线程1释放锁**。 自旋锁简单来说就是让线程2在循环中不断CAS
+
+但是如果自旋的时间太长也不行，**因为自旋是要消耗CPU的，因此自旋的次数是有限制的，比如10次或者100次，如果自旋次数到了线程1还没有释放锁，或者线程1还在执行，线程2还在自旋等待，这时又有一个线程3过来竞争这个锁对象，那么这个时候轻量级锁就会膨胀为重量级锁。重量级锁把除了拥有锁的线程都阻塞**，防止CPU空转。
