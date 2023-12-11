@@ -1,0 +1,590 @@
+# 安装xorm
+
+![image-20231208153339946](assets/image-20231208153339946.png)
+
+请注意安装不建议直接cmd安装，可以去对应编译器项目下的terminal，即：
+
+![image-20231208153424298](assets/image-20231208153424298.png)
+
+
+
+# 创建Engine
+
+
+
+## 单个Engine
+
+所有操作均需要事先创建并配置 ORM 引擎才可以进行。XORM 支持两种 ORM 引擎，即 Engine 引擎和 Engine Group 引擎。**一个 Engine 引擎用于对单个数据库进行操作，一个 Engine Group 引擎用于对读写分离的数据库或者负载均衡的数据库进行操作**。Engine 引擎和 EngineGroup 引擎的API基本相同，所有适用于 Engine 的 API 基本上都适用于 EngineGroup，并且可以比较容易的从 Engine 引擎迁移到 EngineGroup 引擎。
+
+单个ORM引擎，也称为Engine。一个 APP 可以同时存在多个 Engine 引擎，一个Engine一般只对应一个数据库。Engine 通过调用 `xorm.NewEngine` 生成，如：
+
+```Go
+package main
+// 这个自己写的
+import (
+	"fmt"
+	_ "github.com/go-sql-driver/mysql"
+	"xorm.io/xorm"
+)
+
+var engine *xorm.Engine
+
+func main() {
+	var err error
+	engine, err = xorm.NewEngine("mysql", "root:root@/xormtest?charset=utf-8")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println(engine)
+}
+
+```
+
+or
+
+```Go
+// 这个是官方的
+import (
+    _ "github.com/mattn/go-sqlite3"
+    "xorm.io/xorm"
+)
+
+var engine *xorm.Engine
+
+func main() {
+    var err error
+    engine, err = xorm.NewEngine("sqlite3", "./test.db")
+}
+```
+
+![image-20231208155834956](assets/image-20231208155834956.png)
+
+你也可以用 `NewEngineWithParams`, `NewEngineWithDB` 和 `NewEngineWithDialectAndDB` 来创建引擎。
+
+一般情况下如果只操作一个数据库，只需要创建一个 `engine` 即可。`engine` 是 GoRoutine 安全的。
+
+创建完成 `engine` 之后，并没有立即连接数据库，此时可以通过 `engine.Ping()` 或者 `engine.PingContext()` 来进行数据库的连接测试是否可以连接到数据库。另外对于某些数据库有连接超时设置的，可以通过起一个定期Ping的Go程来保持连接鲜活。
+
+对于有大量数据并且需要分区的应用，也可以根据规则来创建多个Engine，比如：
+
+```go
+var err error
+for i:=0;i<5;i++ {
+    engines[i], err = xorm.NewEngine("sqlite3", fmt.Sprintf("./test%d.db", i))
+}
+```
+
+engine 可以通过 engine.Close 来手动关闭，但是一般情况下可以不用关闭，在程序退出时会自动关闭。
+
+
+
+## 日志 
+
+日志是一个接口，通过设置日志，可以显示SQL，警告以及错误等，默认的显示级别为 INFO。
+
+- `engine.ShowSQL(true)`，则会在控制台打印出生成的SQL语句；
+- `engine.Logger().SetLevel(log.LOG_DEBUG)`，则会在控制台打印调试及以上的信息；
+
+如果希望将信息不仅打印到控制台，而是保存为文件，那么可以通过类似如下的代码实现，`NewSimpleLogger(w io.Writer)`接收一个io.Writer接口来将数据写入到对应的设施中。
+
+```go
+f, err := os.Create("sql.log")
+if err != nil {
+    println(err.Error())
+    return
+}
+engine.SetLogger(log.NewSimpleLogger(f))
+```
+
+当然，如果希望将日志记录到 syslog 中，也可以如下：
+
+```go
+logWriter, err := syslog.New(syslog.LOG_DEBUG, "rest-xorm-example")
+if err != nil {
+	log.Fatalf("Fail to create xorm system logger: %v\n", err)
+}
+
+logger := log.NewSimpleLogger(logWriter)
+logger.ShowSQL(true)
+engine.SetLogger(logger)
+```
+
+你也可以自定义自己的接口，可通过日志接口中包含的 `context` 进行更详细的跟踪。
+
+## 连接池 
+
+engine内部支持连接池接口和对应的函数。
+
+- 如果需要设置连接池的空闲数大小，可以使用 `engine.SetMaxIdleConns()` 来实现。
+- 如果需要设置最大打开连接数，则可以使用 `engine.SetMaxOpenConns()` 来实现。
+- 如果需要设置连接的最大生存时间，则可以使用 `engine.SetConnMaxLifetime()` 来实现。
+
+
+
+# 创建Engine组
+
+
+
+## 创建 Engine 组 
+
+通过创建引擎组 EngineGroup 来实现对从数据库 (Master/Slave) 读写分离的支持。在创建引擎章节中，我们已经介绍过了，在 xorm 里面，可以同时存在多个 Orm 引擎，一个 Orm 引擎称为 Engine，一个 Engine 一般只对应一个数据库，而 EngineGroup 一般则对应一组数据库。EngineGroup 通过调用 xorm.NewEngineGroup 生成，如：
+
+```Go
+import (
+    _ "github.com/lib/pq"
+    "xorm.io/xorm"
+)
+
+var eg *xorm.EngineGroup
+
+func main() {
+	conns := []string{
+		"postgres://postgres:root@localhost:5432/test?sslmode=disable;", // 第一个默认是master
+		"postgres://postgres:root@localhost:5432/test1?sslmode=disable;", // 第二个开始都是slave
+		"postgres://postgres:root@localhost:5432/test2?sslmode=disable",
+	}
+
+    var err error
+	eg, err = xorm.NewEngineGroup("postgres", conns)
+}
+```
+
+或者
+
+```Go
+import (
+    _ "github.com/lib/pq"
+    "xorm.io/xorm"
+)
+
+var eg *xorm.EngineGroup
+
+func main() {
+    var err error
+    master, err := xorm.NewEngine("postgres", "postgres://postgres:root@localhost:5432/test?sslmode=disable")
+    if err != nil {
+		return
+	}
+
+    slave1, err := xorm.NewEngine("postgres", "postgres://postgres:root@localhost:5432/test1?sslmode=disable")
+    if err != nil {
+		return
+	}
+
+    slave2, err := xorm.NewEngine("postgres", "postgres://postgres:root@localhost:5432/test2?sslmode=disable")
+    if err != nil {
+		return
+	}
+
+   	slaves := []*xorm.Engine{slave1, slave2}
+	eg, err = xorm.NewEngineGroup(master, slaves)
+}
+```
+
+创建完成 EngineGroup 之后，并没有立即连接数据库，此时可以通过 eg.Ping() 来进行数据库的连接测试是否可以连接到数据库，该方法会依次调用引擎组中每个Engine的Ping方法。另外对于某些数据库有连接超时设置的，可以通过起一个定期Ping的Go程来保持连接鲜活。EngineGroup 可以通过 eg.Close() 来手动关闭，但是一般情况下可以不用关闭，在程序退出时会自动关闭。
+
+- NewEngineGroup方法
+
+```Go
+func NewEngineGroup(args1 interface{}, args2 interface{}, policies ...GroupPolicy) (*EngineGroup, error)
+```
+
+前两个参数的使用示例如上，有两种模式。
+
+- 模式一：通过给定 DriverName，DataSourceName 来创建引擎组，每个引擎使用相同的Driver。每个引擎的 DataSourceNames 是 []string 类型，第一个元素是 Master 的 DataSourceName，之后的元素是 Slave的DataSourceName 。
+- 模式二：通过给定*xorm.Engine，`[]*xorm.Engine` 来创建引擎组，每个引擎可以使用不同的 Driver。第一个参数为 Master 的 *xorm.Engine，第二个参数为 Slave 的 []*xorm.Engine。 NewEngineGroup 方法，第三个参数为 policies，为 Slave 设定负载策略，该参数将在负载策略章节详细介绍，如示例中未指定，则默认为轮询负载策略。
+
+- Master方法
+
+```Go
+func (eg *EngineGroup) Master() *Engine
+```
+
+返回Master数据库引擎
+
+- Slave方法
+
+```Go
+func (eg *EngineGroup) Slave() *Engine
+```
+
+依据给定的负载策略返回一个Slave数据库引擎
+
+- Slaves方法
+
+```Go
+func (eg *EngineGroup) Slaves() []*Engine
+```
+
+返回所以 Slave 数据库引擎
+
+- SetPolicy方法
+
+```Go
+func (eg *EngineGroup) SetPolicy(policy GroupPolicy) *EngineGroup
+```
+
+设置引擎组负载策略
+
+
+
+# 设置 Engine 组策略
+
+
+
+## 负载策略 
+
+通过 xorm.NewEngineGroup 创建 EngineGroup 时，第三个参数为 policies，我们可以通过该参数来指定 Slave 访问的负载策略。如创建EngineGroup 时未指定，则默认使用轮询的负载策略。
+
+xorm 中内置五种负载策略，分别为随机访问负载策略，权重随机访问负载策略，轮询访问负载策略，权重轮询访问负载策略和最小连接数访问负载策略。**开发者也可以通过实现 GroupPolicy 接口，来实现自定义负载策略**。
+
+- 随机访问负载策略
+
+```Go
+import (
+  _ "github.com/lib/pq"
+  "xorm.io/xorm"
+)
+
+var eg *xorm.EngineGroup
+
+func main() {
+  conns := []string{
+    "postgres://postgres:root@localhost:5432/test?sslmode=disable;",
+    "postgres://postgres:root@localhost:5432/test1?sslmode=disable;",
+    "postgres://postgres:root@localhost:5432/test2?sslmode=disable",
+  }
+
+  var err error
+  eg, err = xorm.NewEngineGroup("postgres", conns, xorm.RandomPolicy())
+}
+```
+
+- 权重随机访问负载策略
+
+```Go
+import (
+    _ "github.com/lib/pq"
+    "xorm.io/xorm"
+)
+
+var eg *xorm.EngineGroup
+
+func main() {
+  conns := []string{
+		"postgres://postgres:root@localhost:5432/test?sslmode=disable;",
+		"postgres://postgres:root@localhost:5432/test1?sslmode=disable;",
+		"postgres://postgres:root@localhost:5432/test2?sslmode=disable",
+	}
+
+  var err error
+  //此时设置的test1数据库和test2数据库的随机访问权重为2和3
+	eg, err = xorm.NewEngineGroup("postgres", conns, xorm.WeightRandomPolicy([]int{2, 3}))
+}
+```
+
+- 轮询访问负载策略
+
+```Go
+import (
+    _ "github.com/lib/pq"
+    "xorm.io/xorm"
+)
+
+var eg *xorm.EngineGroup
+
+func main() {
+    conns := []string{
+		"postgres://postgres:root@localhost:5432/test?sslmode=disable;",
+		"postgres://postgres:root@localhost:5432/test1?sslmode=disable;",
+		"postgres://postgres:root@localhost:5432/test2?sslmode=disable",
+	}
+
+    var err error
+	eg, err = xorm.NewEngineGroup("postgres", conns, xorm.RoundRobinPolicy())
+}
+```
+
+- 权重轮询访问负载策略
+
+```Go
+import (
+    _ "github.com/lib/pq"
+    "xorm.io/xorm"
+)
+
+var eg *xorm.EngineGroup
+
+func main() {
+  conns := []string{
+		"postgres://postgres:root@localhost:5432/test?sslmode=disable;",
+		"postgres://postgres:root@localhost:5432/test1?sslmode=disable;",
+		"postgres://postgres:root@localhost:5432/test2?sslmode=disable",
+	}
+
+  var err error
+  //此时设置的test1数据库和test2数据库的轮询访问权重为2和3
+	eg, err = xorm.NewEngineGroup("postgres", conns, xorm.WeightRoundRobinPolicy([]int{2, 3}))
+}
+```
+
+- 最小连接数访问负载策略
+
+```Go
+import (
+    _ "github.com/lib/pq"
+    "xorm.io/xorm"
+)
+
+var eg *xorm.EngineGroup
+
+func main() {
+    conns := []string{
+		"postgres://postgres:root@localhost:5432/test?sslmode=disable;",
+		"postgres://postgres:root@localhost:5432/test1?sslmode=disable;",
+		"postgres://postgres:root@localhost:5432/test2?sslmode=disable",
+	}
+
+    var err error
+	eg, err = xorm.NewEngineGroup("postgres", conns, xorm.LeastConnPolicy())
+}
+```
+
+- 自定义负载策略
+
+你也可以通过实现 GroupPolicy 接口来实现自定义负载策略。
+
+```Go
+type GroupPolicy interface {
+	Slave(*EngineGroup) *Engine
+}
+```
+
+
+
+# 名称映射
+
+
+
+### 名称映射规则 
+
+跟名称相关的函数包含在 `xorm.io/xorm/names` 下。名称映射规则主要负责结构体名称到表名和结构体 field 到表字段的名称映射。由 `names.Mapper` 接口的实现者来管理，xorm 内置了三种 `Mapper` 实现：`names.SnakeMapper` ， `names.SameMapper`和`names.GonicMapper`。
+
+- SnakeMapper 支持struct为驼峰式命名，表结构为下划线命名之间的转换，这个是默认的Maper；
+- SameMapper 支持结构体名称和对应的表名称以及结构体field名称与对应的表字段名称相同的命名；
+- GonicMapper 和SnakeMapper很类似，但是对于特定词支持更好，比如ID会翻译成id而不是i_d。
+
+当前 SnakeMapper 为默认值，如果需要改变时，在 engine 创建完成后使用
+
+```Go
+engine.SetMapper(names.GonicMapper{})
+```
+
+同时需要注意的是：
+
+- 如果你使用了别的命名规则映射方案，也可以自己实现一个 Mapper。
+- 表名称和字段名称的映射规则默认是相同的，当然也可以设置为不同，如：
+
+```Go
+engine.SetTableMapper(names.SameMapper{})
+engine.SetColumnMapper(names.SnakeMapper{})
+```
+
+当结构体自动转换为对应的数据库类型时，小表显示了转换关系：
+
+| go type's kind                                       | value method                        | xorm type    |
+| ---------------------------------------------------- | ----------------------------------- | ------------ |
+| implemented Conversion                               | Conversion.ToDB / Conversion.FromDB | Text         |
+| int, int8, int16, int32, uint, uint8, uint16, uint32 |                                     | Int          |
+| int64, uint64                                        |                                     | BigInt       |
+| float32                                              |                                     | Float        |
+| float64                                              |                                     | Double       |
+| complex64, complex128                                | json.Marshal / json.UnMarshal       | Varchar(64)  |
+| []uint8                                              |                                     | Blob         |
+| array, slice, map except []uint8                     | json.Marshal / json.UnMarshal       | Text         |
+| bool                                                 | 1 or 0                              | Bool         |
+| string                                               |                                     | Varchar(255) |
+| time.Time                                            |                                     | DateTime     |
+| cascade struct                                       | primary key field value             | BigInt       |
+|                                                      |                                     |              |
+| struct                                               | json.Marshal / json.UnMarshal       | Text         |
+| Others                                               |                                     | Text         |
+
+
+
+# 前缀映射，后缀映射和缓存映射
+
+
+
+### 前缀映射，后缀映射和缓存映射 
+
+- 通过 `names.NewPrefixMapper(names.SnakeMapper{}, "prefix")` 可以创建一个在 SnakeMapper 的基础上在命名中添加统一的前缀，当然也可以把 SnakeMapper{} 换成 SameMapper 或者你自定义的 Mapper。
+
+例如，如果希望所有的表名都在结构体自动命名的基础上加一个前缀而字段名不加前缀，则可以在 engine 创建完成后执行以下语句：
+
+```Go
+tbMapper := names.NewPrefixMapper(names.SnakeMapper{}, "prefix_")
+engine.SetTableMapper(tbMapper)
+```
+
+执行之后，结构体 `type User struct` 默认对应的表名就变成了 `prefix_user` 了，而之前默认的是 `user`
+
+- 通过 `names.NewSuffixMapper(names.SnakeMapper{}, "suffix")` 可以创建一个在 SnakeMapper 的基础上在命名中添加统一的后缀，当然也可以把SnakeMapper换成SameMapper或者你自定义的Mapper。
+- 通过 `names.NewCacheMapper(names.SnakeMapper{})` 可以创建一个组合了其它的映射规则，起到在内存中缓存曾经映射过的命名映射。
+
+
+
+# 使用 Table 和 Tag 改变名称映射
+
+
+
+### 使用 Table 和 Tag 改变名称映射 
+
+如果所有的命名都是按照 Mapper 的映射来操作的，那当然是最理想的。但是如果碰到某个表名或者某个字段名跟映射规则不匹配时，我们就需要别的机制来改变。xorm 提供了如下几种方式来进行：
+
+- 如果结构体拥有 `TableName() string` 的成员方法，那么此方法的返回值即是该结构体对应的数据库表名。
+- 通过 `engine.Table()` 方法可以改变 struct 对应的数据库表的名称，通过 sturct 中 field 对应的 Tag 中使用 `xorm:"'column_name'"`可以使该 field 对应的 Column 名称为指定名称。这里使用两个单引号将 Column 名称括起来是为了防止名称冲突，因为我们在Tag中还可以对这个Column进行更多的定义。如果名称不冲突的情况，单引号也可以不使用。
+
+到此名称映射的所有方法都给出了，一共三种方式，这三种是有优先级顺序的。
+
+- 表名的优先级顺序如下：
+  - `engine.Table()` 指定的临时表名优先级最高
+  - `TableName() string` 其次
+  - `Mapper` 自动映射的表名优先级最后
+- 字段名的优先级顺序如下：
+  - 结构体tag指定的字段名优先级较高
+  - `Mapper` 自动映射的表名优先级较低
+
+
+
+# Column 属性定义
+
+
+
+### Column 属性定义 
+
+我们在 field 对应的 Tag 中对 Column 的一些属性进行定义，定义的方法基本和我们写SQL定义表结构类似，比如：
+
+```go
+type User struct {
+    Id   int64
+    Name string  `xorm:"varchar(25) notnull unique 'usr_name' comment('姓名')"`
+}
+```
+
+对于不同的数据库系统，数据类型其实是有些差异的。因此xorm中对数据类型有自己的定义，基本的原则是尽量兼容各种数据库的字段类型，具体的字段对应关系可以查看[字段类型对应表](https://xorm.io/zh/docs/chapter-02/4.columns/5.types.md)。对于使用者，一般只要使用自己熟悉的数据库字段定义即可。
+
+具体的 Tag 规则如下，另 Tag 中的关键字均不区分大小写，但字段名根据不同的数据库是区分大小写：
+
+| name                                             | 当前field对应的字段的名称，可选，如不写，则自动根据field名字和转换规则命名，如与其它关键字冲突，请使用单引号括起来。 |
+| ------------------------------------------------ | ------------------------------------------------------------ |
+| pk                                               | 是否是Primary Key，如果在一个struct中有多个字段都使用了此标记，则这多个字段构成了复合主键，单主键当前支持int32,int,int64,uint32,uint,uint64,string这7种Go的数据类型，复合主键支持这7种Go的数据类型的组合。 |
+| 当前支持30多种字段类型，详情参见本文最后一个表格 | 字段类型                                                     |
+| autoincr                                         | 是否是自增                                                   |
+| [not ]null 或 notnull                            | 是否可以为空                                                 |
+| unique或unique(uniquename)                       | 是否是唯一，如不加括号则该字段不允许重复；如加上括号，则括号中为联合唯一索引的名字，此时如果有另外一个或多个字段和本unique的uniquename相同，则这些uniquename相同的字段组成联合唯一索引 |
+| index或index(indexname)                          | 是否是索引，如不加括号则该字段自身为索引，如加上括号，则括号中为联合索引的名字，此时如果有另外一个或多个字段和本index的indexname相同，则这些indexname相同的字段组成联合索引 |
+| extends                                          | 应用于一个匿名成员结构体或者非匿名成员结构体之上，表示此结构体的所有成员也映射到数据库中，extends可加载无限级 |
+| -                                                | 这个Field将不进行字段映射                                    |
+| ->                                               | 这个Field将只写入到数据库而不从数据库读取                    |
+| <-                                               | 这个Field将只从数据库读取，而不写入到数据库                  |
+| created                                          | 这个Field将在Insert时自动赋值为当前时间                      |
+| updated                                          | 这个Field将在Insert或Update时自动赋值为当前时间              |
+| deleted                                          | 这个Field将在Delete时设置为当前时间，并且当前记录不删除      |
+| version                                          | 这个Field将会在insert时默认为1，每次更新自动加1              |
+| default 0或default(0)                            | 设置默认值，紧跟的内容如果是Varchar等需要加上单引号          |
+| json                                             | 表示内容将先转成Json格式，然后存储到数据库中，数据库中的字段类型可以为Text或者二进制 |
+| comment                                          | 设置字段的注释（当前仅支持mysql）                            |
+
+另外有如下几条自动映射的规则：
+
+- 1.如果field名称为`Id`而且类型为`int64`并且没有定义tag，则会被xorm视为主键，并且拥有自增属性。如果想用`Id`以外的名字或非int64类型做为主键名，必须在对应的Tag上加上`xorm:"pk"`来定义主键，加上`xorm:"autoincr"`作为自增。这里需要注意的是，有些数据库并不允许非主键的自增属性。
+- 2.string类型默认映射为`varchar(255)`，如果需要不同的定义，可以在tag中自定义，如：`varchar(1024)`
+- 3.支持`type MyString string`等自定义的field，支持Slice, Map等field成员，这些成员默认存储为Text类型，并且默认将使用Json格式来序列化和反序列化。也支持数据库字段类型为Blob类型。如果是Blob类型，则先使用Json格式序列化再转成[]byte格式。如果是[]byte或者[]uint8，则不做转换二十直接以二进制方式存储。具体参见 [Go与字段类型对应表](https://xorm.io/zh/docs/chapter-02/4.columns/chapter-02/5.types.md)
+- 4.实现了Conversion接口的类型或者结构体，将根据接口的转换方式在类型和数据库记录之间进行相互转换，这个接口的优先级是最高的。
+
+```Go
+type Conversion interface {
+    FromDB([]byte) error
+    ToDB() ([]byte, error)
+}
+```
+
+- 5.如果一个结构体包含一个 Conversion 的接口类型，那么在获取数据时，必须要预先设置一个实现此接口的struct或者struct的指针。此时可以在此struct中实现`BeforeSet(name string, cell xorm.Cell)`方法来进行预先给Conversion赋值。例子参见 [testConversion](https://gitea.com/xorm/tests/blob/master/base.go#L1826)
+
+下表为xorm类型和各个数据库类型的对应表：
+
+| xorm       | mysql      | sqlite3 | postgres            | remark                   |
+| ---------- | ---------- | ------- | ------------------- | ------------------------ |
+| BIT        | BIT        | INTEGER | BIT                 |                          |
+| TINYINT    | TINYINT    | INTEGER | SMALLINT            |                          |
+| SMALLINT   | SMALLINT   | INTEGER | SMALLINT            |                          |
+| MEDIUMINT  | MEDIUMINT  | INTEGER | INTEGER             |                          |
+| INT        | INT        | INTEGER | INTEGER             |                          |
+| INTEGER    | INTEGER    | INTEGER | INTEGER             |                          |
+| BIGINT     | BIGINT     | INTEGER | BIGINT              |                          |
+|            |            |         |                     |                          |
+| CHAR       | CHAR       | TEXT    | CHAR                |                          |
+| VARCHAR    | VARCHAR    | TEXT    | VARCHAR             |                          |
+| TINYTEXT   | TINYTEXT   | TEXT    | TEXT                |                          |
+| TEXT       | TEXT       | TEXT    | TEXT                |                          |
+| MEDIUMTEXT | MEDIUMTEXT | TEXT    | TEXT                |                          |
+| LONGTEXT   | LONGTEXT   | TEXT    | TEXT                |                          |
+|            |            |         |                     |                          |
+| BINARY     | BINARY     | BLOB    | BYTEA               |                          |
+| VARBINARY  | VARBINARY  | BLOB    | BYTEA               |                          |
+|            |            |         |                     |                          |
+| DATE       | DATE       | NUMERIC | DATE                |                          |
+| DATETIME   | DATETIME   | NUMERIC | TIMESTAMP           |                          |
+| TIME       | TIME       | NUMERIC | TIME                |                          |
+| TIMESTAMP  | TIMESTAMP  | NUMERIC | TIMESTAMP           |                          |
+| TIMESTAMPZ | TEXT       | TEXT    | TIMESTAMP with zone | timestamp with zone info |
+|            |            |         |                     |                          |
+| REAL       | REAL       | REAL    | REAL                |                          |
+| FLOAT      | FLOAT      | REAL    | REAL                |                          |
+| DOUBLE     | DOUBLE     | REAL    | DOUBLE PRECISION    |                          |
+|            |            |         |                     |                          |
+| DECIMAL    | DECIMAL    | NUMERIC | DECIMAL             |                          |
+| NUMERIC    | NUMERIC    | NUMERIC | NUMERIC             |                          |
+|            |            |         |                     |                          |
+| TINYBLOB   | TINYBLOB   | BLOB    | BYTEA               |                          |
+| BLOB       | BLOB       | BLOB    | BYTEA               |                          |
+| MEDIUMBLOB | MEDIUMBLOB | BLOB    | BYTEA               |                          |
+| LONGBLOB   | LONGBLOB   | BLOB    | BYTEA               |                          |
+| BYTEA      | BLOB       | BLOB    | BYTEA               |                          |
+|            |            |         |                     |                          |
+| BOOL       | TINYINT    | INTEGER | BOOLEAN             |                          |
+| SERIAL     | INT        | INTEGER | SERIAL              | auto increment           |
+| BIGSERIAL  | BIGINT     | INTEGER | BIGSERIAL           | auto increment           |
+
+
+
+# Go与字段类型对应表
+
+
+
+### Go与字段类型对应表 
+
+如果不使用 tag 来定义 field 对应的数据库字段类型，那么系统会自动给出一个默认的字段类型，对应表如下：
+
+| go type's kind                                       | value method                        | xorm type    |
+| ---------------------------------------------------- | ----------------------------------- | ------------ |
+| implemented Conversion                               | Conversion.ToDB / Conversion.FromDB | Text         |
+| int, int8, int16, int32, uint, uint8, uint16, uint32 |                                     | Int          |
+| int64, uint64                                        |                                     | BigInt       |
+| float32                                              |                                     | Float        |
+| float64                                              |                                     | Double       |
+| complex64, complex128                                | json.Marshal / json.UnMarshal       | Varchar(64)  |
+| []uint8                                              |                                     | Blob         |
+| array, slice, map except []uint8                     | json.Marshal / json.UnMarshal       | Text         |
+| bool                                                 | 1 or 0                              | Bool         |
+| string                                               |                                     | Varchar(255) |
+| time.Time                                            |                                     | DateTime     |
+| cascade struct                                       | primary key field value             | BigInt       |
+|                                                      |                                     |              |
+| struct                                               | json.Marshal / json.UnMarshal       | Text         |
+| Others                                               |                                     | Text         |
+
+
+
