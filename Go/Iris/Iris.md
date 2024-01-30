@@ -112,3 +112,79 @@ func (c *ExampleController) GetHello() interface{} {
 
 ```
 
+
+
+# 监听和服务
+
+你可以启动服务监听任何类型为 net.Listener乃至http.Server实例。服务器的初始化方法应该是在最后，最后 Run方法执行。
+
+Go开发者使用最常见的方法是通过使用包含[hostname:ip]的网络地址来为服务器提供服务。在iris中，我们使用类型为iris.Runner的iris.Addr
+
+```go
+// 在TCP上监听网络地址 0.0.0.0:8080
+app.Run(iris.Addr(":8080"))
+```
+
+有时你会创建一个标准的net/http服务在你的应用中，并且使用它为你的iris网站提供服务
+
+```go
+// 和前面一样，但是使用自定义http.server 也可以在其他地方运行
+app.Run(iris.Server(&http.Server{Addr:":8080"}))
+```
+
+最先进的使用方法是创建一个自定义或者标准的net.Listener并传递给app.Run
+
+```go
+// 使用自定义 net.Listener
+l, err := net.Listen("tcp4", ":8080")
+if err != nil {
+    panic(err)
+}
+app.Run(iris.Listener(l))
+
+```
+
+```go
+package main
+
+import (
+    // tcplisten 包提供可定制的 TCP net.Listener以及各种性能相关选项：
+    //
+    //   - SO_REUSEPORT。这个选项允许在多 CPU 服务器上线性扩展服务器性能。
+    //     查看 https://www.nginx.com/blog/socket-sharding-nginx-release-1-9-1/ 了解详情.
+    //
+    //   - TCP_DEFER_ACCEPT。这个选项期望服务器在写入前从已接受的连接中读取。
+    //
+    //   - TCP_FASTOPEN. 查看 https://lwn.net/Articles/508865/ 获取详情
+    "github.com/valyala/tcplisten"
+
+    "github.com/kataras/iris"
+)
+
+// go get github.com/valyala/tcplisten
+// go run main.go
+
+func main() {
+    app := iris.New()
+
+    app.Get("/", func(ctx iris.Context) {
+        ctx.HTML("<h1>Hello World!</h1>")
+    })
+
+    listenerCfg := tcplisten.Config{
+        ReusePort:   true,
+        DeferAccept: true,
+        FastOpen:    true,
+    }
+
+    l, err := listenerCfg.NewListener("tcp", ":8080")
+    if err != nil {
+        app.Logger().Fatal(err)
+    }
+
+    app.Run(iris.Listener(l))
+}
+
+
+```
+
