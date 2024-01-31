@@ -104,3 +104,38 @@ git remote add origin git@github.com:RayLeon969/my_note.git
 添加remote的地址来源于：
 
 ![image-20231204105558962](assets/image-20231204105558962.png)
+
+
+
+# 记录端口不可用Bug
+
+上传报错：
+
+```bash
+ssh: connect to host github.com port 22: Connection timed out
+```
+
+显示22端口连接超时 查阅相关资料后解决方法如下：
+
+1. 进入当前用户的下的.ssh文件中
+
+2. 使用vim config来编写config文件
+
+3. 文件内容如下
+
+   ```tex
+   Host github.com
+   User git
+   Hostname ssh.github.com
+   PreferredAuthentications publickey
+   IdentityFile ~/.ssh/id_rsa
+   Port 443
+   ```
+
+4. 保存后使用以下命令检查连通性
+
+   ```bash
+   ssh -T git@github.com
+   ```
+
+   
