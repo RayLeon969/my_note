@@ -51,7 +51,25 @@ ssh-keygen -t rsa -C “1140267690@qq.com”
 
 # Pull操作
 
-到指定文件夹下，git pull即可
+如果是新建文件夹	
+
+
+
+
+
+1. 首先去需要pull的GitHub项目下，复制如下内容。
+
+![image-20240212113611818](assets/image-20240212113611818.png)
+
+2. 然后使用 git clone
+
+```bash
+git clone git@github.com:RayLeon969/my_note.git
+```
+
+3. 然后 cd my_note/
+4. git checkout master 切换分支
+5. 然后直接git pull
 
 
 

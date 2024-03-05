@@ -187,6 +187,14 @@ pip install mysqlclient
 
 ![image-20240225091724870](assets/image-20240225091724870.png)
 
+然后在命令行执行
+
+```bash
+python manage.py makemigrations
+
+python manage.py migrate
+```
+
 
 
 ## 2.crud
@@ -198,6 +206,12 @@ def orm(request):
 
     # 1.新建
     # UserInfo.objects.create('zmy')
+     user = UserInfo(
+        name= 'zmy',
+        password= '123',
+        age= 25,
+    )
+    user.save()
 
     # 2.删除表 filter是筛选条件
     # UserInfo.objects.filter(id=1).delete()
@@ -211,6 +225,192 @@ def orm(request):
 
     return HttpResponse('成功')
 ```
+
+
+
+## 3. 表关系建立
+
+
+
+### 一对一关系建立
+
+1. 在模型任意一边即可，使用models.OneToOneFiled()链接即可。
+
+   ```python
+   from django.db import models
+   
+   # Create your models here.
+   class UserInfo(models.Model):
+       name = models.CharField(max_length=32)
+       password = models.CharField(max_length=64)
+       age = models.IntegerField()
+   
+       # 此处不写明关联 先假设一个作者也只有一本书
+   
+   class Book(models.Model):# 和用户建立一对一关系
+       title = models.CharField(max_length=32)
+   
+       # 建立一对一关系
+       author = models.OneToOneField(UserInfo, on_delete=models.CASCADE, related_name='book')
+   
+   ```
+
+   
+
+2. 添加没有关系的一边，直接实例化保存就可以。
+
+   ```python
+   def add_user(request):
+   
+       user = UserInfo(
+           name= 'zmy',
+           password= '123',
+           age= 25,
+       )
+       user.save()
+       return HttpResponse('用户添加成功')
+   
+   ```
+
+   
+
+3. 添加有关系的一边，使用create方法。
+
+```python
+def add_book(request):
+    author = UserInfo.objects.filter(id=1).first()
+
+    book = Book(title='java', author=author)
+    book.save()
+
+    return HttpResponse('书本添加成功')
+```
+
+测试：
+
+```python
+def show_bookAurthor(request):
+    book = Book.objects.filter(title='java').first()
+
+    return HttpResponse(book.author.name)
+
+def show_userBook(request):
+    user = UserInfo.objects.filter(id=1).first()
+
+    return HttpResponse(user.book.title)
+```
+
+均正常显示
+
+
+
+### 一对多关系建立
+
+再一对多中多的一方使用models.ForeignKey
+
+```python
+class UserInfo(models.Model):
+    name = models.CharField(max_length=32)
+    password = models.CharField(max_length=64)
+    age = models.IntegerField()
+    
+class Blog(models.Model):
+
+    title = models.CharField(max_length=32)
+
+    user = models.ForeignKey(UserInfo, on_delete=models.CASCADE, related_name='blogs')
+    
+```
+
+添加blogs
+
+```python
+def add_blogs(request):
+    user = UserInfo.objects.filter(id=1).first()
+
+    blog1 = Blog(title='python', user=user)
+    blog2 = Blog(title='go', user=user)
+    blog1.save()
+    blog2.save()
+
+    return HttpResponse('博客添加成功')
+
+```
+
+反向查验blogs
+
+```python
+def show_userBlogs(request):
+
+    user = UserInfo.objects.filter(id=1).first()
+    res = ''
+    for blog in user.blogs.all(): # 此处名为blogs的原因是字段定义中related_name='blogs'
+        res = res + " " + blog.title
+
+    return HttpResponse(res)
+```
+
+
+
+### 多对多关系建立
+
+使用models.ManyToMany定义，只需要定义一边。
+
+```python
+class Book(models.Model):
+    title = models.CharField(max_length=32)
+
+    # 建立一对一关系
+    author = models.OneToOneField(UserInfo, on_delete=models.CASCADE, related_name='book')
+    
+class Tag(models.Model):
+    title = models.CharField(max_length=32)
+
+    books = models.ManyToManyField(Book, related_name='tags')
+```
+
+新增tags
+
+```python
+def add_tags(request):
+    book1 = Book.objects.filter(title='java').first()
+    book2 = Book.objects.filter(title='rust').first()
+
+    tag1 = Tag(title='后端')
+    tag2 = Tag(title='语言')
+
+    tag1.save()
+    tag2.save()
+
+    book1.tags.add(tag1)
+    book1.tags.add(tag2)
+    book2.tags.add(tag1)
+    book2.tags.add(tag2)
+
+
+
+    return HttpResponse('标签添加成功')
+```
+
+==注意，这里是先保存tags，然后再把book的tags设定为tag==
+
+测试
+
+```python
+def show_tags(request):
+    book1 = Book.objects.filter(title='java').first()
+    book2 = Book.objects.filter(title='rust').first()
+
+    for tag in book1.tags.all():
+        print(tag.title)
+
+    for tag in book2.tags.all():
+        print(tag.title)
+
+    return HttpResponse('成功')
+```
+
+
 
 
 
