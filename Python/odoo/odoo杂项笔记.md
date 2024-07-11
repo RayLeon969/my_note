@@ -250,3 +250,26 @@ model_a.write({
 self.env.user.has_group('base.group_user'):
 ```
 
+# psql执行.sql文件
+
+```shell
+psql -U <数据库用户> -p <postgresql端口> -d <数据库> -f <.sql文件路径>
+```
+
+# psql配置环境变量：
+
+1. 添加变量PG_HOME 值：postgresql安装目录
+2. path中添加%PG_HOME%\bin\
+
+# cmd查找并终止端口服务
+
+```shell
+netstat -ano | findstr 8069
+```
+
+假设查到进程服务6475，即标有listening的进程服务
+
+```shell
+taskkill -PID 6475 -F
+```
+
