@@ -73,7 +73,7 @@ git clone git@github.com:RayLeon969/my_note.git
 
 
 
-# 文件，代码上传
+# Push操作
 
 操作顺序是先add，然后commit，最后push.
 
@@ -103,7 +103,12 @@ git push -u origin master
 
 覆盖式提交
 git push -f origin master
+
+标有origin的代表是远程分支 git push origin<远程分支>:<本地分支> 代表从本地分支推送到远程分支 如果没有远程分支就会创建这个远程分支
+git push origin master:master
 ```
+
+
 
 
 
@@ -122,6 +127,49 @@ git remote add origin git@github.com:RayLeon969/my_note.git
 添加remote的地址来源于：
 
 ![image-20231204105558962](assets/image-20231204105558962.png)
+
+
+
+# Reset操作
+
+```bash
+git reset --hard xxxxx
+```
+
+--hard会强制回退到xxxx的commit节点，不会保留你所做的更改，所以你应该将所做的更改保存u或者考虑用--sorf
+
+xxxx可以用git log 查询
+
+# Branch
+
+```bash
+查看分支
+git branch
+
+删除分支
+git branch -d or -D xxxx
+-D是强制删除，不会保留更改
+
+查看远程分支
+git branch -r
+
+删除远程分支
+git push origin --delete xxxx
+```
+
+
+
+# checkout操作
+
+```bash
+切换分支
+git checkout master
+
+基于当前分支创建新分支并切换到新分支
+git checkout -b new_branch
+```
+
+
 
 
 
@@ -157,3 +205,4 @@ ssh: connect to host github.com port 22: Connection timed out
    ```
 
    
+

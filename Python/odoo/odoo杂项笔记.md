@@ -273,3 +273,23 @@ netstat -ano | findstr 8069
 taskkill -PID 6475 -F
 ```
 
+
+
+# 关于ref和%()d的使用
+
+==在xml视图中，button的attrs里面ref是不能使用的==
+
+当我们需要使用外部id时候，可以使用%(外部id)d的形式填写到xml视图中，注意这里是代码里面，而且必须升级，在升级过程中系统会去渲染%()d里面的内容，最终在前端xml的效果是一个数字。
+
+代码里：
+
+```xml
+ <button name="button_back_to_confirm" string="驳回" type="object" class="oe_highlight" confirm="确认驳回？" attrs="{'invisible':[('order_business_area_id', '=', %(scm.data_sale_business_area_international)d), ('state', '=', 'business_confirming')]}"/
+```
+
+前端最终效果：
+
+```xml
+ <button name="button_back_to_confirm" string="驳回" type="object" class="oe_highlight" confirm="确认驳回？" attrs="{'invisible':[('order_business_area_id', '=', 2), ('state', '=', 'business_confirming')]}"/>
+```
+
