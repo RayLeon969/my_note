@@ -171,8 +171,6 @@ git checkout -b new_branch
 
 
 
-
-
 # 记录端口不可用Bug
 
 上传报错：
@@ -206,3 +204,16 @@ ssh: connect to host github.com port 22: Connection timed out
 
    
 
+# 记录git bash找不到应用程序的问题
+
+问题引发原因：换电脑后E和F的盘符对调了，导致路径错误
+
+首先win+R
+
+![image-20240719174404411](F:\note\my_note\Git\assets\image-20240719174404411.png)
+
+输入路径：计算机\HKEY_LOCAL_MACHINE\SOFTWARE\Classes\Directory\background\shell\git_shell\command
+
+![image-20240719174441274](F:\note\my_note\Git\assets\image-20240719174441274.png)
+
+点击数据进行修改，改为正确的git路径即可

@@ -293,3 +293,33 @@ taskkill -PID 6475 -F
  <button name="button_back_to_confirm" string="驳回" type="object" class="oe_highlight" confirm="确认驳回？" attrs="{'invisible':[('order_business_area_id', '=', 2), ('state', '=', 'business_confirming')]}"/>
 ```
 
+
+
+# 关于noupdate的xml修改问题
+
+现有如下记录：
+
+![image-20240719171627381](F:\note\my_note\Python\odoo\assets\image-20240719171627381.png)
+
+可以看到noupdate=1，此时表示这个xml下的所有record，在第一次加载进odoo后，就不会进行更新了，即使后面再次修改xml文件里面的内容，例如domain_force，也不会生效。
+
+其实这种限制一般不建议noupdate=1设置为noupdate=0
+
+如果已经加载过，又需要修改的话，按照以下步骤：
+
+1. 首先将noupdate=1改为=0
+2. 编写脚本文件
+3. 将这个xml文件下，即data noupdate=1标签下所有的record的id作为一个domain = [record.ids]，只用id即可，不必要加上模块名
+4. 搜索records = env['ir.model.data'].search([('name', 'in', domain)])
+5. 循环records，将所有的record.noupdate=False
+6. 如果要修改某个record的domain_force就在循环records的时候找到那个record，然后record.domain_force = xxxx，**注意这里一定要改，而不只是在xml文件里面改，不然修改不会生效。**
+7. 升级模块后，执行脚本。
+
+# 关于在后台执行服务动作run()方法
+
+odoo14版本
+
+服务器动作.run()方法，再执行之前如果不刻意更改active_id的话，在run方法执行后会获取前面context中自动生成的active_id，然后根据这个不正确的active_id去获取对应model的记录，这个记录是错误的，操作同样也可能会引发错误，所以在调用这个方法之前，如果知道要执行动作的记录id就要填写实际的记录id，即：active_id=record.id，如果不知道，或者多批次执行的话，那就设置只填写active_ids，然后在执行run方法之前把active_id固定设置成false。
+
+
+
