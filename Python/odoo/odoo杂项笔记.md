@@ -323,3 +323,20 @@ odoo14版本
 
 
 
+# 关于return ir action的问题
+
+每次进行return{...}且type为ir.action或者window，report时，都会去创建一条记录
+
+记录通过按钮调用服务器打印
+
+
+
+# 记录通过Git Bash下载远程服务器上的文件
+
+随便在一个文件夹下打开Git bash
+
+```bash
+scp username@remote_host:/xxx/xxx.zip xxx.zip
+```
+
+后面这个zip自己命名，位置就是自己打开bash的位置

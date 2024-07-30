@@ -12,7 +12,7 @@ git安装自行下载安装：傻瓜式操作
 
 ![image-20231204104226470](assets/image-20231204104226470.png)
 
-进去后打开Git Bash
+​		进去后打开Git Bash
 
 ```bash
 设置用户名
