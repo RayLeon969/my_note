@@ -217,3 +217,26 @@ ssh: connect to host github.com port 22: Connection timed out
 ![image-20240719174441274](F:\note\my_note\Git\assets\image-20240719174441274.png)
 
 点击数据进行修改，改为正确的git路径即可
+
+
+
+# 记录如果拉错代码分支紊乱，如果重新恢复
+
+首先删除git所在的文件夹所有文件
+
+```bash
+git clone -b fix_master ssh:xxxxxxxxxxxxxxxxx
+
+git branch 查看分支 此时是fix_master
+git checkout -b fix_mouyuan 此时是在fix_master 用checkout -b 根据当前分支建立新分支fix_moyuan
+此时fix_mouyuan里面就是fix_master一样的代码
+push fix_mouyuan到远程的fix_mouyuan 如果被拒绝了就删除远程分支重新push，会重新创建远程分支，然后提PR检查push过去的fix_mouyuan等不等于fix_master
+
+然后 日更是fix_master 周更是feature_week 此时我们需要把feature_week同样加到代码中，注意不是两个文件而是在同一个文件中
+此时是在fix_mouyuan分支，但是我们不和第一步一样直接clone或者pull，我们直接:
+git checkout feature_week
+注意不是checkout -b而是直接checkout,然后git会自动根据远程同名的fearture_week在本地建立分支feature_week
+然后我们checkout -b dev_mouyuan，此时我们就生成了dev_mouyuan，然后和前面一样push到远程分支，然后提pr检查是否一样
+
+```
+

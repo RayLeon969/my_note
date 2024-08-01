@@ -340,3 +340,6 @@ scp username@remote_host:/xxx/xxx.zip xxx.zip
 ```
 
 后面这个zip自己命名，位置就是自己打开bash的位置
+
+
+
