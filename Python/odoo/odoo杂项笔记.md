@@ -343,3 +343,71 @@ scp username@remote_host:/xxx/xxx.zip xxx.zip
 
 
 
+# 记录开发踩坑，控制台提示锁超时！
+
+进了odoo-shell，但是你更新了字段，本来没有存储在表中的字段你后续又加了store=True然后更新，此时shell会开一个进程锁住数据库，那此时更新模块就会去更新表格，但是表被shell进程锁住了，所以会导致一直获取不到锁，此时应该把shell关了！
+
+
+
+# act_window_close
+
+ir.actions.act_window_close的作用非常简单，就是关闭当前窗口。常用的场景就是完成一段业务逻辑后，需要将此窗口关闭时。这时，只需要返回一个act_window_close的动作即可。
+
+```python
+解释def btn_OK(self):
+    return {
+        'type':'ir.actions.act_window_close'
+    }
+```
+
+
+
+# domain中需要使用ref的情况
+
+如果我们像常规的方式:
+
+```xml
+<field name="domain">[('abc','=',ref('xxx.xxx'))]</field>
+```
+
+系统会提示ref不可用，这个时候我们就需要变通一下，使用eval函数将其转换为如下的形式：
+
+```xml
+<field name="domain" eval="[('abc','=',ref('xxx.xxx'))]"</field>
+```
+
+
+
+# with_delay()异步任务执行
+
+首先需要安装queue_job模块
+
+然后再odoo.conf文件中配置:
+
+```
+[option]
+workers = 2
+max_cron_threads = 1
+server_wide_modules = web,queue_job
+
+[queue_job]
+channels = root:2
+```
+
+代码中使用
+
+```python
+#在我们公司的开发中重写了queue_job模块，所以不需要添加@job标签
+
+@job
+def xxxx()
+# 耗时量大的代码
+
+def yyyy()
+	self.with_delay().xxxx() # 调用方法前使用with_delay即可
+
+```
+
+queue_job加载成功的标志：启动时注意控制台日志：
+
+![image-20240815103151958](F:\note\my_note\Python\odoo\assets\image-20240815103151958.png)
