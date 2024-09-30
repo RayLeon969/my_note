@@ -411,3 +411,90 @@ def yyyy()
 queue_job加载成功的标志：启动时注意控制台日志：
 
 ![image-20240815103151958](F:\note\my_note\Python\odoo\assets\image-20240815103151958.png)
+
+`scp`（Secure Copy Protocol）是用于在本地和远程主机之间安全地复制文件的命令。以下是一些常用的 `scp` 命令示例：
+
+1. **从本地复制文件到远程主机**：
+
+   ```
+   bash
+   
+   
+   复制代码
+   scp /path/to/local/file username@remote_host:/path/to/remote/directory
+   ```
+
+2. **从远程主机复制文件到本地**：
+
+   ```
+   bash
+   
+   
+   复制代码
+   scp username@remote_host:/path/to/remote/file /path/to/local/directory
+   ```
+
+3. **复制整个目录到远程主机**（使用 `-r` 参数）：
+
+   ```
+   bash
+   
+   
+   复制代码
+   scp -r /path/to/local/directory username@remote_host:/path/to/remote/directory
+   ```
+
+4. **复制文件并指定端口**：
+
+   ```
+   bash
+   
+   
+   复制代码
+   scp -P port_number /path/to/local/file username@remote_host:/path/to/remote/directory
+   ```
+
+5. **使用密钥文件进行身份验证**：
+
+   ```
+   bash
+   
+   
+   复制代码
+   scp -i /path/to/private/key /path/to/local/file username@remote_host:/path/to/remote/directory
+   ```
+
+### 注意事项
+
+- 确保 SSH 服务在远程主机上运行。
+- 确保有相应的权限来读写文件。
+- 使用正确的用户名和主机名。
+
+
+
+# Python镜像
+
+``` 
+https://pypi.org/simple 官方镜像
+
+https://pypi.tuna.tsinghua.edu.cn/simple 清华镜像
+
+中国科学技术大学 : https://pypi.mirrors.ustc.edu.cn/simple
+
+阿里云：http://mirrors.aliyun.com/pypi/simple/
+
+pip isntall <module> -i 镜像
+```
+
+
+
+# 记录requirements.txt报错
+
+![image-20240929155300948](F:\note\my_note\Python\odoo\assets\image-20240929155300948.png)
+
+出现以上图片的报错：
+
+```
+升级 setuptools 和 wheel
+```
+
