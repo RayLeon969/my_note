@@ -279,7 +279,7 @@ taskkill -PID 6475 -F
 
 ==在xml视图中，button的attrs里面ref是不能使用的==
 
-当我们需要使用外部id时候，可以使用%(外部id)d的形式填写到xml视图中，注意这里是代码里面，而且必须升级，在升级过程中系统会去渲染%()d里面的内容，最终在前端xml的效果是一个数字。
+当我们需要使用外部id时候，可以使用%(外部id)d的形式填写到xml视图中，注意这里是代码里面，而且==必须升级==，在升级过程中系统会去渲染%()d里面的内容，最终在前端xml的效果是一个数字。
 
 代码里：
 
@@ -483,7 +483,7 @@ https://pypi.tuna.tsinghua.edu.cn/simple 清华镜像
 
 阿里云：http://mirrors.aliyun.com/pypi/simple/
 
-pip isntall <module> -i 镜像
+pip isntall <module> -i 镜像 --trusted-host mirrors.aliyun.com
 ```
 
 
@@ -496,5 +496,14 @@ pip isntall <module> -i 镜像
 
 ```
 升级 setuptools 和 wheel
+```
+
+
+
+# 记录用不同python下载依赖
+
+```
+如果有三个版本python ABC
+去A的bin目录所在目录下 python -m pip
 ```
 
