@@ -412,6 +412,10 @@ queue_job加载成功的标志：启动时注意控制台日志：
 
 ![image-20240815103151958](F:\note\my_note\Python\odoo\assets\image-20240815103151958.png)
 
+
+
+
+
 `scp`（Secure Copy Protocol）是用于在本地和远程主机之间安全地复制文件的命令。以下是一些常用的 `scp` 命令示例：
 
 1. **从本地复制文件到远程主机**：
