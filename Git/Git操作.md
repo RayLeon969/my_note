@@ -220,7 +220,7 @@ ssh: connect to host github.com port 22: Connection timed out
 
 
 
-# 记录如果拉错代码分支紊乱，如果重新恢复
+# ==记录如果拉错代码分支紊乱，如果重新恢复==
 
 首先删除git所在的文件夹所有文件
 
@@ -240,3 +240,51 @@ git checkout feature_week
 
 ```
 
+
+
+# ==记录SSH端口22被BAN后，仓库换用http形式push==
+
+首先查看一下本地的remote
+
+```
+git remote -v
+
+结果为：此处是https的  ssh的话开头是ssh
+origin  https://github.com/RayLeon969/my_note.git (fetch)
+origin  https://github.com/RayLeon969/my_note.git (push)
+
+```
+
+如果是ssh开头的就改为http形式的
+
+```
+git remote set-url origin https://github.com/RayLeon969/my_note.git
+
+然后直接git push 试试看
+```
+
+可能会出现找不到.crt文件的问题
+
+那就先去文件夹下面找到：ca-bundle.crt文件，然后复制路径
+
+然后设置
+
+```
+git config --global http.sslCAinfo "F:/Environment/Git/mingw64/etc/ssl/certs/ca-bundle.crt"
+
+
+```
+
+然后还可能会出现Recv failure: Connection was reset问题
+
+首先去系统的设置下查看
+
+![image-20241113161255671](F:\note\my_note\Git\assets\image-20241113161255671.png)
+
+然后设置：
+
+```
+git config --global http.proxy http://127.0.0.1:7890
+```
+
+然后就能通过http的形式进行push了，现在普遍也推荐http形式 ssh形式容易被ban
