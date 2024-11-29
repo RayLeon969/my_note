@@ -442,3 +442,142 @@ migrate = Migrate(app,db)
 1. flask db init 只需执行一次
 2. flask db migrate 识别orm模型的改变，生成迁移脚本
 3. flask db upgrade 运行迁移脚本，同步到数据库中
+
+
+
+# 七 新规范
+
+在 **SQLAlchemy 2.0+** 中，使用新的 **`Mapped`** 和 **`mapped_column`** 语法来定义外键和各种关系变得更加简洁。以下是如何在这种风格下定义 **外键** 和 **1 对多、多对多** 的关系的详细说明。
+
+### **1. 外键定义**
+
+外键（Foreign Key）是表示一个表中的字段引用另一个表的主键字段。可以使用 `mapped_column` 和 `ForeignKey` 来定义外键关系。
+
+#### **示例：定义外键**
+
+假设有两个表：`User` 和 `Post`，其中 `Post` 表中的 `user_id` 字段是外键，引用了 `User` 表的 `id` 字段。
+
+```python
+python复制代码from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Integer, String
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = 'user'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50))
+
+class Post(Base):
+    __tablename__ = 'post'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(100))
+    
+    # 外键，引用 User 表的 id 字段
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('user.id'))
+
+    # 一对多关系（从 Post 到 User）
+    user: Mapped['User'] = relationship("User", back_populates="posts")
+
+User.posts: Mapped[list['Post']] = relationship("Post", back_populates="user")
+```
+
+#### **解释**
+
+- **`ForeignKey('user.id')`**：定义 `Post` 表中的 `user_id` 字段作为外键，指向 `User` 表的 `id` 字段。
+- **`relationship("User", back_populates="posts")`**：定义了 `Post` 与 `User` 的一对多关系，并在 `User` 中通过 `back_populates` 进行反向映射。
+- **`User.posts`**：在 `User` 表中反向定义了这个一对多关系，使得 `User` 能够访问相关的 `Post`。
+
+### **2. 一对多（One-to-Many）关系**
+
+一对多关系表示一个父表记录可以有多个子表记录，但每个子表记录只能属于一个父表记录。
+
+#### **示例：一对多关系**
+
+```python
+python复制代码class User(Base):
+    __tablename__ = 'user'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50))
+
+    # 一对多关系，User 可以有多个 Post
+    posts: Mapped[list['Post']] = relationship("Post", back_populates="user")
+
+class Post(Base):
+    __tablename__ = 'post'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(100))
+    
+    # 外键，引用 User 表的 id 字段
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('user.id'))
+
+    # 反向关系，Post 只属于一个 User
+    user: Mapped['User'] = relationship("User", back_populates="posts")
+```
+
+#### **解释**
+
+- **`User.posts`**：定义 `User` 表中的一对多关系，表示一个 `User` 可以有多个 `Post`。
+- **`Post.user`**：定义反向关系，表示每个 `Post` 只属于一个 `User`。
+
+### **3. 多对一（Many-to-One）关系**
+
+多对一关系是指多个子表记录指向同一个父表记录。实际上，多对一关系就是一对多关系的反向关系，所以在 SQLAlchemy 中可以通过在另一个表中定义外键来表示。
+
+在上面的示例中，`Post` 中的 `user_id` 就是一个多对一关系的例子，因为多个 `Post` 可能指向同一个 `User`。
+
+### **4. 多对多（Many-to-Many）关系**
+
+多对多关系表示两个表中的记录可以互相引用，即一方的多条记录可以与另一方的多条记录相关联。通常，使用中间表来实现多对多关系。
+
+#### **示例：多对多关系**
+
+假设有两个表：`Student` 和 `Course`，一个学生可以选多个课程，一个课程可以有多个学生。中间表 `student_course` 记录了学生和课程的关联。
+
+```python
+python复制代码class Student(Base):
+    __tablename__ = 'student'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50))
+
+    # 多对多关系
+    courses: Mapped[list['Course']] = relationship(
+        "Course",
+        secondary="student_course",  # 使用中间表
+        back_populates="students"
+    )
+
+class Course(Base):
+    __tablename__ = 'course'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(100))
+
+    # 多对多关系
+    students: Mapped[list['Student']] = relationship(
+        "Student",
+        secondary="student_course",  # 使用中间表
+        back_populates="courses"
+    )
+
+# 中间表
+class StudentCourse(Base):
+    __tablename__ = 'student_course'
+    student_id: Mapped[int] = mapped_column(Integer, ForeignKey('student.id'), primary_key=True)
+    course_id: Mapped[int] = mapped_column(Integer, ForeignKey('course.id'), primary_key=True)
+```
+
+#### **解释**
+
+- **`secondary="student_course"`**：在 `Student` 和 `Course` 之间定义了一个多对多关系，并指定了中间表 `student_course` 来存储两者的关联。
+- **`StudentCourse`**：这是定义多对多关系的中间表，它连接 `Student` 和 `Course` 两个表。
+
+### **总结**
+
+1. **外键**：使用 `ForeignKey` 映射字段和引用的主键。
+2. **一对多**：使用 `relationship` 在父表和子表之间建立关系，定义外键和反向关系。
+3. **多对一**：实际上是与一对多关系的反向定义相同，通过外键将多个记录指向一个父记录。
+4. **多对多**：通过 `secondary` 指定中间表来实现多对多关系，定义两个表与中间表的关系。
+
+SQLAlchemy 2.0+ 的 `Mapped` 和 `mapped_column` 语法使得这些关系定义更加现代化和简洁，同时保留了 ORM 强大的功能。
