@@ -581,3 +581,538 @@ class StudentCourse(Base):
 4. **多对多**：通过 `secondary` 指定中间表来实现多对多关系，定义两个表与中间表的关系。
 
 SQLAlchemy 2.0+ 的 `Mapped` 和 `mapped_column` 语法使得这些关系定义更加现代化和简洁，同时保留了 ORM 强大的功能。
+
+# 八 关于查询
+
+SQLAlchemy 2.0 引入了一些新的查询语法和概念，主要的变化是 **引入了 2.0 风格的查询 API**，以及对数据库事务和查询执行的更加规范化。这些改动带来了更简洁且一致的查询方式。
+
+在 SQLAlchemy 2.0 中，使用 `select()` 和 `session.execute()` 代替了旧版的 `query()`。下面我将详细讲解 SQLAlchemy 2.0 中的查询方式。
+
+### 1. **引入 `select()` 和 `session.execute()`**
+
+在 SQLAlchemy 2.0 中，查询的方式发生了改变，不再使用传统的 `session.query()` 方法，而是引入了 **`select()`** 查询对象。
+
+- **`select()`**：新的查询方法，代替了旧版本的 `session.query()`，用于构建查询。
+- **`session.execute()`**：执行查询对象，返回一个查询结果。
+
+### 2. **基础查询**
+
+假设我们有一个简单的 `User` 模型：
+
+```python
+python复制代码from sqlalchemy import Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    age = Column(Integer)
+```
+
+我们可以使用 SQLAlchemy 2.0 来进行查询：
+
+#### 查询所有用户：
+
+```python
+python复制代码from sqlalchemy import select
+
+# 创建查询对象
+query = select(User)
+
+# 执行查询
+result = session.execute(query).scalars().all()
+
+# 输出所有用户
+for user in result:
+    print(user.id, user.name, user.age)
+```
+
+#### 查询单个用户：
+
+```python
+python复制代码query = select(User).where(User.id == 1)
+result = session.execute(query).scalars().first()
+
+# 输出单个用户
+if result:
+    print(result.id, result.name, result.age)
+```
+
+#### 查询带条件的用户：
+
+```python
+python复制代码query = select(User).where(User.age > 25)
+result = session.execute(query).scalars().all()
+
+# 输出满足条件的用户
+for user in result:
+    print(user.id, user.name, user.age)
+```
+
+### 3. **`select()` 与 `session.execute()` 的关系**
+
+SQLAlchemy 2.0 推崇一种显式的执行方式，不再使用 `session.query()` 直接查询。相反，使用 `select()` 来构造查询，然后通过 `session.execute()` 来执行查询。这里有两个常用的方法来获取查询结果：
+
+- **`scalars()`**：如果查询的结果是单一列或模型实例（而不是一组元组），你可以使用 `.scalars()` 来获取。
+- **`all()`**：获取所有结果。
+- **`first()`**：获取第一个结果（如果有）。
+
+#### 示例：查询特定字段
+
+```python
+python复制代码query = select(User.name, User.age).where(User.age > 25)
+result = session.execute(query).all()
+
+# 输出查询的字段
+for name, age in result:
+    print(name, age)
+```
+
+### 4. **`join()` 连接查询**
+
+SQLAlchemy 2.0 中的连接查询（`join()`）依然与 SQLAlchemy 1.x 类似，唯一的变化是查询的方式不再是通过 `session.query()`，而是通过 `select()` 和 `join()` 构造。
+
+假设我们有两个表，`User` 和 `Address`，它们通过外键 `user_id` 关联。
+
+#### 定义模型：
+
+```python
+python复制代码class Address(Base):
+    __tablename__ = 'addresses'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    email_address = Column(String)
+    
+    user = relationship('User', back_populates='addresses')
+
+User.addresses = relationship('Address', order_by=Address.id, back_populates='user')
+```
+
+#### 连接查询（`join`）：
+
+```python
+python复制代码from sqlalchemy.orm import aliased
+
+# 创建连接查询
+query = select(User, Address).join(Address, User.id == Address.user_id)
+
+# 执行查询
+result = session.execute(query).all()
+
+# 输出结果
+for user, address in result:
+    print(f"{user.name} - {address.email_address}")
+```
+
+在这个查询中，`select(User, Address)` 选择了两个表，`join(Address, User.id == Address.user_id)` 表示连接 `User` 和 `Address` 表。
+
+### 5. **复杂查询和子查询**
+
+SQLAlchemy 2.0 支持复杂查询和子查询。我们可以通过 `select()` 嵌套 `select()` 来实现子查询。
+
+#### 子查询的例子：
+
+```python
+python复制代码subquery = select(User.id).where(User.age > 30).alias()
+
+# 主查询
+query = select(Address).where(Address.user_id.in_(subquery))
+
+# 执行查询
+result = session.execute(query).all()
+
+# 输出查询结果
+for address in result:
+    print(address.email_address)
+```
+
+在这个例子中，`subquery` 是一个子查询，查询所有年龄大于 30 的用户 ID。主查询选择了这些用户的地址。
+
+### 6. **聚合查询**
+
+SQLAlchemy 2.0 支持 SQL 聚合函数，如 `count()`, `sum()`, `avg()` 等。你可以在 `select()` 中使用这些聚合函数来执行统计查询。
+
+#### 计算用户的总数：
+
+```python
+python复制代码from sqlalchemy import func
+
+query = select(func.count(User.id)).label('user_count')
+
+result = session.execute(query).scalar()
+
+print(f"Total users: {result}")
+```
+
+### 7. **使用事务（`session.commit()`）**
+
+在 SQLAlchemy 2.0 中，数据库操作还是需要显式地通过事务提交。例如，在修改数据后你需要调用 `session.commit()` 来提交更改。
+
+```python
+python复制代码user = session.execute(select(User).where(User.id == 1)).scalars().first()
+user.name = "Updated Name"
+session.commit()  # 提交更改到数据库
+```
+
+### 8. **其他 SQL 操作**
+
+- **排序 (`order_by`)**：
+
+  ```python
+  python复制代码query = select(User).order_by(User.age.desc())
+  result = session.execute(query).scalars().all()
+  ```
+
+- **分页 (`limit`, `offset`)**：
+
+  ```python
+  python复制代码query = select(User).limit(10).offset(20)
+  result = session.execute(query).scalars().all()
+  ```
+
+### 总结：
+
+- **`select()`**：用于构建查询。
+- **`session.execute()`**：执行查询并获取结果。
+- **`scalars()`**：提取单列或模型实例。
+- **`join()`**：连接表进行联合查询。
+- **`filter()`**：添加条件过滤。
+- **聚合函数**：使用 `func` 进行聚合查询。
+- **事务管理**：操作数据后调用 `session.commit()` 提交事务。
+
+SQLAlchemy 2.0 强调更加显式和统一的查询方式，通过 `select()` 和 `session.execute()` 进行查询，不仅清晰明了，而且易于控制和扩展。
+
+在 SQLAlchemy 2.0 中，`scalars()` 是一个非常重要的查询结果处理方法，它用于从查询结果中提取单个列或模型实例的值，特别适用于需要获取单一字段或模型对象的情况。
+
+
+
+在 SQLAlchemy 中，可以使用 `select()` 方法来构建复杂的查询条件，尤其是当条件包含 **OR** 和 **AND** 逻辑时。要实现 `(A or B) and C` 这样的查询条件，可以使用 SQLAlchemy 提供的 `or_` 和 `and_` 方法来组合不同的条件。
+
+### 1. **构建查询 `(A or B) and C`**
+
+假设我们有以下模型：
+
+```python
+python复制代码from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import select, or_, and_
+
+Base = declarative_base()
+
+class MyModel(Base):
+    __tablename__ = 'my_model'
+    id = Column(Integer, primary_key=True)
+    field_a = Column(String)
+    field_b = Column(String)
+    field_c = Column(String)
+
+# 创建数据库引擎和会话
+engine = create_engine('sqlite:///:memory:')
+Base.metadata.create_all(engine)
+Session = sessionmaker(bind=engine)
+session = Session()
+```
+
+现在我们要查询所有满足以下条件的记录：
+
+- `(field_a = 'value1' OR field_b = 'value2') AND field_c = 'value3'`
+
+### 2. **构建 SQLAlchemy 查询**
+
+使用 `or_()` 来构建 `A or B` 部分，`and_()` 来构建整体的 `AND` 逻辑。
+
+```python
+python复制代码# 创建查询条件
+query = select(MyModel).where(
+    and_(
+        or_(
+            MyModel.field_a == 'value1',
+            MyModel.field_b == 'value2'
+        ),
+        MyModel.field_c == 'value3'
+    )
+)
+
+# 执行查询
+result = session.execute(query).scalars().all()
+
+# 输出查询结果
+for record in result:
+    print(record.id, record.field_a, record.field_b, record.field_c)
+```
+
+### 3. **解释代码**
+
+- **`or_()`**：用于将多个条件结合成 `OR` 逻辑。在上面的例子中，`field_a = 'value1'` 或 `field_b = 'value2'`。
+- **`and_()`**：用于将多个条件结合成 `AND` 逻辑。在上面的例子中，`(field_a = 'value1' OR field_b = 'value2') AND field_c = 'value3'`。
+
+### 4. **查询结果**
+
+执行该查询后，`result` 将包含所有满足条件 `(A or B) and C` 的记录。具体来说，如果某条记录的 `field_a` 为 `'value1'` 或 `field_b` 为 `'value2'` 且 `field_c` 为 `'value3'`，它就会被包含在查询结果中。
+
+### 总结
+
+- **OR 条件**：使用 `or_()` 结合多个条件。
+- **AND 条件**：使用 `and_()` 结合多个条件。
+- 使用 `select().where()` 将条件传入查询中，构建复杂的逻辑条件。
+
+这种方式非常灵活，可以根据需要组合多个复杂的查询条件。
+
+
+
+
+
+
+
+### `scalars()` 方法的作用：
+
+1. **提取单一列值**： 当你进行查询时，如果你只选择了某个表的单个字段（如 `User.name` 或 `User.age`），那么你可以使用 `scalars()` 来直接提取这个字段的值。
+2. **返回模型实例**： 在某些情况下，你可能只需要从查询结果中提取模型实例本身，而不是包含多个字段的元组。
+
+### 基本用法：
+
+#### 1. 查询单一列并使用 `scalars()`
+
+假设我们有一个 `User` 表，你只关心 `name` 字段而不是整个 `User` 对象：
+
+```python
+python复制代码from sqlalchemy import select
+
+# 查询用户的名字
+query = select(User.name)
+
+# 执行查询并提取单一列的值
+result = session.execute(query).scalars().all()
+
+# 输出查询结果
+for name in result:
+    print(name)
+```
+
+- **`scalars()`**：提取查询结果中的单列（`User.name`）。执行完查询后，`result` 是一个 `list`，包含查询到的所有 `name` 字段的值。
+
+  如果查询的结果包含多个字段（比如选择了 `name` 和 `age`），则 `scalars()` 只会返回第一个字段的所有值。
+
+#### 2. 查询模型实例并使用 `scalars()`
+
+如果你查询的是模型本身，而不仅仅是字段值，`scalars()` 会返回一个包含模型实例的列表：
+
+```python
+python复制代码# 查询所有用户实例
+query = select(User)
+
+# 执行查询并获取用户实例列表
+result = session.execute(query).scalars().all()
+
+# 输出每个用户实例的属性
+for user in result:
+    print(user.id, user.name, user.age)
+```
+
+- 这里，`scalars()` 会提取模型实例，而不是一个包含所有字段的元组。如果查询的结果是一个 `User` 实例，那么 `scalars()` 会返回包含这些实例的列表。
+
+#### 3. 查询单个模型实例并使用 `scalars()`
+
+如果你只关心查询的第一个结果，可以使用 `first()`：
+
+```python
+python复制代码# 查询第一个用户实例
+query = select(User).where(User.id == 1)
+
+# 执行查询并获取单个实例
+result = session.execute(query).scalars().first()
+
+# 输出结果
+if result:
+    print(result.id, result.name, result.age)
+```
+
+- **`first()`**：返回查询结果的第一个项，如果没有结果，则返回 `None`。
+
+#### 4. 使用 `scalars()` 处理聚合查询
+
+当你使用聚合函数（如 `COUNT`, `SUM`, `AVG` 等）时，`scalars()` 可以帮助你提取结果。例如，计算用户的数量：
+
+```python
+python复制代码from sqlalchemy import func
+
+# 计算用户总数
+query = select(func.count(User.id))
+
+# 执行查询并获取计数结果
+count = session.execute(query).scalars().first()
+
+print(f"Total users: {count}")
+```
+
+- **`first()`**：因为聚合查询通常只返回一个结果，所以我们用 `first()` 来获取这个单一值。
+
+### 什么时候使用 `scalars()`：
+
+- **单列查询**：当查询的结果只有一个字段时，使用 `scalars()` 可以直接获得这个字段的值，而不是一个包含多个字段的元组。
+- **模型实例**：如果你只需要模型实例，而不是多个列值，使用 `scalars()` 可以直接提取模型实例。
+- **聚合查询结果**：聚合查询通常返回一个单一值，使用 `scalars()` 可以方便地获取这个值。
+
+### 对比 `.all()` 与 `.scalars()`：
+
+- **`all()`**：返回所有查询结果，通常是一个包含多个元组的列表，每个元组代表一行数据（如果选择了多个字段的话）。
+- **`scalars()`**：返回查询结果的单一列或模型实例。如果查询了多个字段，`scalars()` 只返回第一个字段的值。如果查询的是模型实例，返回的是模型实例。
+
+### 例子：
+
+1. **`.all()`：**
+
+   ```python
+   python复制代码query = select(User.name, User.age)
+   result = session.execute(query).all()
+   for name, age in result:
+       print(f"Name: {name}, Age: {age}")
+   ```
+
+   - 这里，`all()` 返回的是一个包含所有元组的列表，每个元组包含了 `name` 和 `age`。
+
+2. **`.scalars()`：**
+
+   ```python
+   python复制代码query = select(User.name)
+   result = session.execute(query).scalars().all()
+   for name in result:
+       print(name)
+   ```
+
+   - 这里，`scalars()` 返回的是一个包含 `name` 列的单一值列表。
+
+### 总结：
+
+- **`scalars()`** 用于从查询结果中提取单一列或模型实例，简化了从查询结果中提取单一数据的过程。
+- 它适用于 **查询单列数据**（如某个字段的所有值）或者 **返回模型实例** 的情况。
+- 它是 SQLAlchemy 2.0 中的新特性，使得查询结果的处理更加灵活和简洁
+
+在 SQLAlchemy 中，模糊查询通常使用 `like` 或 `ilike` 来匹配字符串。具体来说，`like` 是区分大小写的模糊查询，而 `ilike` 是不区分大小写的模糊查询。
+
+### 使用 `like` 进行模糊查询
+
+- `like` 用于执行区分大小写的模糊匹配。例如，我们可以查找名字中包含某个子字符串的所有用户。
+
+#### 示例：
+
+假设我们有一个 `User` 模型，它有 `name` 和 `email` 字段，我们想查询所有名字中包含“john”的用户。
+
+```python
+python复制代码from sqlalchemy import select
+
+# 查询名字包含 'john' 的所有用户
+query = select(User).where(User.name.like('%john%'))
+
+# 执行查询
+result = session.execute(query).scalars().all()
+
+# 输出查询结果
+for user in result:
+    print(user.id, user.name, user.email)
+```
+
+这里，`'%john%'` 是一个通配符字符串，表示匹配包含 "john" 的任何位置。
+
+- `%`：表示任意字符（包括空字符）。
+- `_`：表示一个任意字符。
+
+例如：
+
+- `'%john%'`：匹配任何地方包含 `john` 的字符串。
+- `'john%'`：匹配以 `john` 开头的字符串。
+- `'%john'`：匹配以 `john` 结尾的字符串。
+- `'j_n%'`：匹配 `j` 和 `n` 之间有一个任意字符的字符串。
+
+### 使用 `ilike` 进行不区分大小写的模糊查询
+
+如果你需要执行不区分大小写的模糊查询，可以使用 `ilike`。`ilike` 与 `like` 相似，但不区分大小写。
+
+#### 示例：
+
+```python
+python复制代码# 查询名字包含 'john'，不区分大小写
+query = select(User).where(User.name.ilike('%john%'))
+
+# 执行查询
+result = session.execute(query).scalars().all()
+
+# 输出查询结果
+for user in result:
+    print(user.id, user.name, user.email)
+```
+
+- `'%john%'` 这里同样表示匹配包含 `john` 的任何地方，但查询将不区分大小写。
+
+### 使用 `like` 和 `ilike` 的查询优化
+
+为了提高性能，通常建议在使用 `like` 或 `ilike` 时结合索引。比如，如果你在 `User.name` 上创建了一个索引，它将有助于加速模糊查询的执行。
+
+#### 创建索引：
+
+```python
+python复制代码from sqlalchemy import Index
+
+# 创建一个针对 User.name 字段的索引
+Index('ix_user_name', User.name)
+```
+
+### 通过 `filter()` 实现模糊查询
+
+你可以使用 `filter()` 来实现模糊查询，通常与 `like` 或 `ilike` 一起使用：
+
+```python
+python复制代码query = select(User).filter(User.name.like('%john%'))
+result = session.execute(query).scalars().all()
+```
+
+或者，不区分大小写的：
+
+```python
+python复制代码query = select(User).filter(User.name.ilike('%john%'))
+result = session.execute(query).scalars().all()
+```
+
+### 组合条件查询
+
+你还可以将模糊查询与其他条件（如 `and_` 或 `or_`）结合使用进行复杂查询。例如，查询名字包含 `john` 且邮箱包含 `gmail` 的用户：
+
+```python
+python复制代码from sqlalchemy import and_
+
+query = select(User).filter(and_(User.name.like('%john%'), User.email.like('%gmail%')))
+result = session.execute(query).scalars().all()
+
+# 输出查询结果
+for user in result:
+    print(user.id, user.name, user.email)
+```
+
+### 使用 `like` 和 `ilike` 进行多条件查询
+
+如果你想要查询多个字段并使用模糊查询，可以在 `filter()` 中同时使用多个 `like` 或 `ilike` 条件：
+
+```python
+python复制代码query = select(User).filter(
+    User.name.ilike('%john%'),
+    User.email.ilike('%gmail%')
+)
+result = session.execute(query).scalars().all()
+
+# 输出查询结果
+for user in result:
+    print(user.id, user.name, user.email)
+```
+
+### 总结
+
+- **`like`**：用于区分大小写的模糊查询。
+- **`ilike`**：用于不区分大小写的模糊查询。
+- 使用 `%` 和 `_` 作为通配符进行模糊匹配。
+- `like` 和 `ilike` 可以与 `filter()` 和 `select()` 结合使用进行更复杂的查询。
