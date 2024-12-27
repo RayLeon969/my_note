@@ -511,3 +511,20 @@ pip isntall <module> -i 镜像 --trusted-host mirrors.aliyun.com
 去A的bin目录所在目录下 python -m pip
 ```
 
+#  提示框代码
+
+```python
+    def display_notification(self, title='提示', message='提示信息', style_type='danger'):
+        notification = {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _(title),
+                'message': message,
+                'sticky': False,
+                'type': style_type  # 展示的信息框样式 有danger、warning、success等
+            },
+        }
+        return notification # 比raise ValidationError好看点
+```
+

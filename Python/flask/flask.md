@@ -582,6 +582,31 @@ class StudentCourse(Base):
 
 SQLAlchemy 2.0+ 的 `Mapped` 和 `mapped_column` 语法使得这些关系定义更加现代化和简洁，同时保留了 ORM 强大的功能。
 
+### 实现类似onchange的方法
+
+```
+"""
+    property装饰器实现的字段不会存储到数据中 
+    参考odoo的onchange 只是这种变换不会在前端显示
+    在前端的视角中这种变化也不是及时性的
+    @property
+    def is_occupy(self):
+        return False
+"""
+
+
+"""
+    如果想在SQL查询时也通过计算，可以参考如下：
+    @hybrid_property
+    def a(self): # 此处用于python层面
+        return self.b + self.c
+        
+    @a.expression
+    def a(cls):  # 此处用于SQL层面
+        return cls.b + cls.c
+"""
+```
+
 # 八 关于查询
 
 SQLAlchemy 2.0 引入了一些新的查询语法和概念，主要的变化是 **引入了 2.0 风格的查询 API**，以及对数据库事务和查询执行的更加规范化。这些改动带来了更简洁且一致的查询方式。
@@ -1116,3 +1141,129 @@ for user in result:
 - **`ilike`**：用于不区分大小写的模糊查询。
 - 使用 `%` 和 `_` 作为通配符进行模糊匹配。
 - `like` 和 `ilike` 可以与 `filter()` 和 `select()` 结合使用进行更复杂的查询。
+
+
+
+# 九 关于表继承
+
+1. ## **单表继承 (Single Table Inheritance)**:
+
+   - 所有父类和子类共享同一张表。子类通过一个“鉴别器列”（通常是 type 或类似的字段）来区分。
+
+   - 优点：简单，查询性能较高，因为只需查询一张表。
+
+   - 缺点：表可能会变得非常宽，因为它需要包含所有子类的所有字段。
+
+   - 实现示例：
+
+     python
+
+     ```python
+     class ResourceModel(Base):
+         __tablename__ = 'resources'
+         id = Column(Integer, primary_key=True)
+         type = Column(String(50))  # Discriminator column
+         # Common fields
+     
+     class VehicleModel(ResourceModel):
+         __mapper_args__ = {'polymorphic_identity': 'vehicle'}
+         # Vehicle-specific fields
+         
+     总结：子类父类共用一张表，表会非常宽，因为子类和父类的字段都在一张表里面
+     ```
+
+2. ## **联合表继承 (Joined Table Inheritance)**: 
+
+   - 每个类（包括父类和子类）都有自己的表。子类表通过外键引用父类表的 id。
+
+   - 优点：每个表只包含与其直接相关的字段，更加规范化。
+
+   - 缺点：查询可能需要连接多个表，可能会影响性能。
+
+   - 实现示例：
+
+     python
+
+     ```python
+     class ResourceModel(Base):
+         __tablename__ = 'resources'
+         id = Column(Integer, primary_key=True)
+         # Common fields
+     
+     class VehicleModel(ResourceModel):
+         __tablename__ = 'vehicles'
+         id = Column(Integer, ForeignKey('resources.id'), primary_key=True)
+         # Vehicle-specific fields
+         
+     总结：子类创建记录的时候，父类也有记录生成。 类似odoo的代理继承
+     
+     参考我写的：
+     class ResourceModel(db.Model):
+         __tablename__: str = "resource"
+     
+         id: Mapped[int] = mapped_column(Integer, primary_key=True, unique=True, autoincrement=True, comment="主键，自增")
+         uuid: Mapped[str] = mapped_column(String(100), nullable=False, comment="唯一标识符", unique=True, default=lambda: str(uuid.uuid4()))
+         name: Mapped[str] = mapped_column(String(100), nullable=True, comment="资源名称")
+         number: Mapped[str] = mapped_column(String(100), nullable=True, comment="标识号")
+         tips: Mapped[str] = mapped_column(Text, nullable=True, comment="资源描述")
+         usage_records: Mapped[list['ResourceUsageRecordModel']] = relationship('ResourceUsageRecordModel', back_populates='resource', foreign_keys='ResourceUsageRecordModel.resource_id')
+     
+     
+     class ResourceUsageRecordModel(db.Model):
+         __tablename__: str = "resource_usage_record"
+     
+         id: Mapped[int] = mapped_column(Integer, primary_key=True, unique=True, autoincrement=True, comment="主键，自增")
+         resource_id: Mapped[int] = mapped_column(ForeignKey("resource.id"), nullable=False, comment='资源')
+         resource: Mapped["ResourceModel"] = relationship("ResourceModel", back_populates="usage_records", foreign_keys=[resource_id])
+         start_date: Mapped[datetime] = mapped_column(DateTime, nullable=True, comment="起始时间")
+         end_date: Mapped[datetime] = mapped_column(DateTime, nullable=True, comment="结束时间")
+         user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False, comment='使用人')
+         
+     class VehicleModel(ResourceModel):
+         __tablename__: str = "vehicle"
+     
+         id: Mapped[int] = mapped_column(ForeignKey('resource.id'), primary_key=True, comment='资源id')
+         model: Mapped[str] = mapped_column(String(100), nullable=True, comment="车辆型号")
+         usage_records: Mapped[list['VehicleUsageRecordModel']] = relationship('VehicleUsageRecordModel',back_populates='resource')
+     
+     
+     class VehicleUsageRecordModel(ResourceUsageRecordModel):
+         __tablename__: str = "vehicle_usage_record"
+     
+         id: Mapped[int] = mapped_column(ForeignKey('resource_usage_record.id'), primary_key=True, comment='资源记录id')
+         resource_id: Mapped[int] = mapped_column(ForeignKey("vehicle.id"), nullable=False, comment='车辆')
+         resource: Mapped["VehicleModel"] = relationship("VehicleModel", back_populates="usage_records",foreign_keys=[resource_id])
+     ```
+
+3. ## **具体表继承 (Concrete Table Inheritance)**:
+
+   - 每个子类都有自己的表，包含父类和子类所有的字段。父类不对应任何表。
+
+   - 优点：子类完全独立，查询简单。
+
+   - 缺点：数据冗余，因为每个子类表都要重复父类字段；更新父类字段会复杂。
+
+   - 实现示例：
+
+     python
+
+     ```python
+     class ResourceModel(Base):
+         # No __tablename__ or table definition here
+         # Common fields (but not mapped to any table)
+     
+     class VehicleModel(ResourceModel):
+         __tablename__ = 'vehicles'
+         id = Column(Integer, primary_key=True)
+         # Common fields (repeated here)
+         # Vehicle-specific fields
+         
+     总结：类似于odoo的日常继承了，只继承父类的字段。注意父类不需要表明tablename
+     ```
+
+其他考虑:
+
+- **混合策略**: 虽然不太常见，但你也可以在同一个模型层次结构中混合使用这些策略，例如，某些继承关系使用单表继承，而其他使用联合表继承。
+- **非继承关系**: 在某些情况下，你可能不希望使用继承，而是通过关系来实现父子模型的连接，这可以避免一些继承带来的复杂性。
+
+选择哪种继承策略主要取决于你的应用需求，如数据模型复杂性、性能要求、查询频率和数据冗余的接受程度。每种方法都有其优缺点，关键是理解这些策略如何影响你的数据库设计和ORM查询。
