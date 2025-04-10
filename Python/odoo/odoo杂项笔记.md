@@ -528,3 +528,74 @@ pip isntall <module> -i 镜像 --trusted-host mirrors.aliyun.com
         return notification # 比raise ValidationError好看点
 ```
 
+
+
+# 记录生成多页excel操作
+
+```
+        header_1 = ['人员',  '客户编号', '客户简称', '客户名称', '币种']
+        header_2 = ['单据编号', '客户编号', '客户名称', '业务员', '部门', '币种', '应收款日', '超期天数', '超期金额']
+
+        datas_list_1 = [[...][....]...]
+        datas_list_2 = [...]
+        
+        df = pd.DataFrame(datas_list_1, columns=header_1)
+        df = df.replace([False, None, pd.NA], "")
+        
+        df_1 = pd.DataFrame(datas_list_2, columns=header_2)
+        df_1 = df_1.replace([False, None, pd.NA], "")
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+
+            df.to_excel(writer, sheet_name='账龄', index=False)
+            # 获取XlsxWriter的工作簿和工作表对象
+            worksheet = writer.sheets['账龄']
+            worksheet.set_column('A:A', 15)
+            worksheet.set_column('B:B', 15)
+            worksheet.set_column('C:C', 15)
+            worksheet.set_column('D:D', 15)
+            worksheet.set_column('E:E', 15)
+            worksheet.set_column('F:F', 25)
+            worksheet.set_column('G:G', 25)
+            worksheet.set_column('H:H', 25)
+            worksheet.set_column('I:I', 25)
+            worksheet.set_column('J:J', 25)
+            worksheet.set_column('K:K', 25)
+            worksheet.set_column('L:L', 25)
+            worksheet.set_column('M:M', 25)
+            worksheet.set_column('N:N', 25)
+
+            df_1.to_excel(writer, sheet_name='超期账款', index=False)
+            # 获取XlsxWriter的工作簿和工作表对象
+            worksheet_2 = writer.sheets['超期账款']
+            worksheet_2.set_column('A:A', 15)
+            worksheet_2.set_column('B:B', 15)
+            worksheet_2.set_column('C:C', 25)
+            worksheet_2.set_column('D:D', 15)
+            worksheet_2.set_column('E:E', 25)
+            worksheet_2.set_column('F:F', 10)
+            worksheet_2.set_column('G:G', 15)
+            worksheet_2.set_column('H:H', 15)
+           worksheet_2.set_column('I:I', 15)
+```
+
+
+
+==一个服务器上运行多个odoo服务，使用不同端口。
+在一个浏览器内同时登录多个相同ip的系统时，出现session过期的问题。==
+
+修改源码：
+odoo/http.py
+
+1. def get_response(self, httprequest, result, explicit_session):
+
+response.set_cookie('session_id', httprequest.session.sid, max_age=90 * 24 * 60 * 60, httponly=True)
+修改为：
+response.set_cookie('session_id_' + httprequest.environ.get('HTTP_HOST', '').split(':')[-1], httprequest.session.sid, max_age=90 * 24 * 60 * 60, httponly=True)
+
+2. def setup_session(self, httprequest):
+
+sid = httprequest.cookies.get('session_id')
+修改为：
+sid = httprequest.cookies.get('session_id_' + httprequest.environ.get('HTTP_HOST', '').split(':')[-1])

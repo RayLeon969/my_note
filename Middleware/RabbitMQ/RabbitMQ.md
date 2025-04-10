@@ -756,7 +756,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 /**
- * @author: 学相伴-飞哥
+ * @author: 
  * @description: Producer 简单队列生产者
  * @Date : 2021/3/2
  */
@@ -1655,3 +1655,123 @@ public class Work2 {
 （2）轮询分发的主要思想是“按均分配”，不考虑消费者的处理能力，所有消费者均分；这种情况下，处理能力弱的服务器，一直都在处理消息，而处理能力强的服务器，在处理完消息后，处于空闲状态；
 
   (3) 公平分发的主要思想是”能者多劳”，按需分配，能力强的干的多
+
+
+
+# Sunell同步框架基于rabbitmq实现
+
+## 基础的生产者和消费者代码
+
+### 生产者
+
+```python
+import pika
+
+# 连接到 RabbitMQ 服务器
+connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+channel = connection.channel()
+
+# 声明一个队列
+channel.queue_declare(queue='task_queue', durable=True)
+
+# 发送消息到队列
+message = "Hello, RabbitMQ!"
+channel.basic_publish(
+    exchange='',
+    routing_key='task_queue',  # 队列的名称
+    body=message,
+    properties=pika.BasicProperties(
+        delivery_mode=2,  # 确保消息持久化
+    )
+)
+
+print(f"Sent: {message}")
+
+# 关闭连接
+connection.close()
+
+```
+
+
+
+### 消费者
+
+```
+import pika
+
+# 连接到 RabbitMQ 服务器
+
+connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+channel = connection.channel()
+
+# 声明队列
+
+channel.queue_declare(queue='task_queue', durable=True)
+
+# 消息回调函数
+
+def callback(ch, method, properties, body):
+    print(f"Received: {body.decode()}")
+
+    # 模拟消息处理
+
+​    ch.basic_ack(delivery_tag=method.delivery_tag)  # 手动确认消息已处理
+
+# 设置消费者并开始消费消息
+
+channel.basic_consume(queue='task_queue', on_message_callback=callback)
+
+print("Waiting for messages. To exit press CTRL+C")
+channel.start_consuming()
+```
+
+![image-20250226200029037](assets/image-20250226200029037.png)
+
+除了rabbitmq的管理系统
+
+不论生产者消费者，他们的账户创建如下：
+
+```
+rabbitmqctl add_user test_user test_password
+rabbitmqctl set_permissions -p / test_user "" ".*" ".*"
+
+```
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
