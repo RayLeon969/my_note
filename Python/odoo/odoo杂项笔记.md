@@ -585,6 +585,7 @@ pip isntall <module> -i 镜像 --trusted-host mirrors.aliyun.com
 ==一个服务器上运行多个odoo服务，使用不同端口。
 在一个浏览器内同时登录多个相同ip的系统时，出现session过期的问题。==
 
+```
 修改源码：
 odoo/http.py
 
@@ -599,3 +600,54 @@ response.set_cookie('session_id_' + httprequest.environ.get('HTTP_HOST', '').spl
 sid = httprequest.cookies.get('session_id')
 修改为：
 sid = httprequest.cookies.get('session_id_' + httprequest.environ.get('HTTP_HOST', '').split(':')[-1])
+```
+
+
+
+# 如何在windows的shell中实现odoo-shell命令效果
+
+你可以通过创建一个自定义的批处理脚本（.bat文件），来实现你想要的功能。具体步骤如下：
+
+1. 打开任意文本编辑器（例如Notepad）。
+2. 将以下内容复制并粘贴到文本编辑器中：
+
+```batch
+@echo off
+F:\Environment\python38\python F:\odoo\odoo-14.0\odoo-14.0\odoo-bin shell %*
+```
+
+1. 将文件保存为 `odoo-shell.bat`（确保文件扩展名是 `.bat`）。
+2. 将 `odoo-shell.bat` 文件放置到你的系统环境变量 `PATH` 中的某个文件夹，或者将其路径添加到环境变量 `PATH` 中。这样你就可以在任何地方通过输入 `odoo-shell` 来执行命令了。
+
+### 具体操作：
+
+1. **添加到系统环境变量**：
+   - 右键点击“此电脑”或“我的电脑” -> 选择“属性”。
+   - 选择“高级系统设置” -> 在弹出的窗口中点击“环境变量”。
+   - 在“系统变量”下找到并选择“Path”，然后点击“编辑”。
+   - 在弹出的窗口中，点击“新建”并添加 `.bat` 文件所在的路径（例如 `C:\Users\YourUserName\path\to\your\bat\file`）。
+2. **通过命令行调用**：
+   - 保存并关闭后，在命令行（cmd）中输入 `odoo-shell`，它会自动转到 `F:\Environment\python38\python F:\odoo\odoo-14.0\odoo-14.0\odoo-bin shell`。
+
+### 解释：
+
+- `%*` 代表你在输入命令时传递给脚本的所有参数（如果有的话）。例如，如果你输入 `odoo-shell some_argument`，那么 `some_argument` 会被传递给实际的命令执行。
+
+这样，你就可以在任何地方直接输入 `odoo-shell` 来启动 Odoo Shell 了！
+
+# 我有多个button，但是这几个button渲染时在页面上连在一起了，我需要他们有些间隔，怎么做？
+
+### 方法一：使用 `oe_inline` + `mr-2` 或 `ml-2` 类添加间距（推荐）
+
+Odoo 使用了 Bootstrap，你可以直接用类 `mr-2`（右间距）或 `ml-2`（左间距）：
+
+```
+xml复制编辑<div class="oe_button_box">
+  <button name="action_button1" type="object" class="btn btn-primary mr-2" string="按钮一"/>
+  <button name="action_button2" type="object" class="btn btn-secondary mr-2" string="按钮二"/>
+  <button name="action_button3" type="object" class="btn btn-success" string="按钮三"/>
+</div>
+```
+
+> `mr-2` 表示右边距为 Bootstrap 的 spacing 单位（相当于 `margin-right: .5rem`）
+
